@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  mongo1:
+    depends_on:
+      - mongo2
+      - mongo3
+    image: mongo:6.0-focal
+    container_name: mongo1
+    hostname: mongo1
+    networks:
+      - connector-net
+    ports:
+      - "27017:27017"
+    command: [ "--replSet", "go-mongo-nats-connector", "--bind_ip_all" ]
+    deploy:
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: test $$(echo "rs.initiate({_id:\"go-mongo-nats-connector\",members:[{_id:0,host:\"mongo1:27017\"},{_id:1,host:\"mongo2:27017\"},{_id:2,host:\"mongo3:27017\"}]}).ok || rs.status().ok" | mongosh --port 27017 --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
+  mongo2:
+    image: mongo:6.0-focal
+    container_name: mongo2
+    hostname: mongo2
+    networks:
+      - connector-net
+    ports:
+      - "27018:27017"
+    command: [ "--replSet", "go-mongo-nats-connector", "--bind_ip_all" ]
+    deploy:
+      restart_policy:
+        condition: on-failure
+  mongo3:
+    image: mongo:6.0-focal
+    container_name: mongo3
+    hostname: mongo3
+    networks:
+      - connector-net
+    ports:
+      - "27019:27017"
+    command: [ "--replSet", "go-mongo-nats-connector", "--bind_ip_all" ]
+    deploy:
+      restart_policy:
+        condition: on-failure
+  nats1:
+    image: nats
+    container_name: nats1
+    networks:
+      - connector-net
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: "--name nats1 --cluster_name NATS --js --sd /data --cluster nats://0.0.0.0:6222 --routes nats://nats2:6222,nats://nats3:6222 --http_port 8222"
+    deploy:
+      restart_policy:
+        condition: on-failure
+  nats2:
+    image: nats
+    container_name: nats2
+    networks:
+      - connector-net
+    command: "--name nats2 --cluster_name NATS --js --sd /data --cluster nats://0.0.0.0:6222 --routes nats://nats1:6222,nats://nats3:6222"
+    deploy:
+      restart_policy:
+        condition: on-failure
+  nats3:
+    image: nats
+    container_name: nats3
+    networks:
+      - connector-net
+    command: "--name nats3 --cluster_name NATS --js --sd /data --cluster nats://0.0.0.0:6222 --routes nats://nats1:6222,nats://nats2:6222"
+    deploy:
+      restart_policy:
+        condition: on-failure
+  connector:
+    depends_on:
+      - mongo1
+      - nats1
+    build:
+      context: .
+    image: connector:latest
+    container_name: connector
+    networks:
+      - connector-net
+    environment:
+      - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=go-mongo-nats-connector
+      - MONGO_DATABASE=test-connector
+      - MONGO_COLLECTION_NAMES=coll1,coll2
+      - NATS_URL=nats://nats1:4222
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+networks:
+  connector-net:
+    driver: bridge
