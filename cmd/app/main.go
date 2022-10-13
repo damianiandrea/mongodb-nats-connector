@@ -2,15 +2,17 @@ package main
 
 import (
 	"context"
-	"github.com/damianiandrea/go-mongo-nats-connector/internal/mongo"
-	"github.com/damianiandrea/go-mongo-nats-connector/internal/nats"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"golang.org/x/sync/errgroup"
+
+	"github.com/damianiandrea/go-mongo-nats-connector/internal/mongo"
+	"github.com/damianiandrea/go-mongo-nats-connector/internal/nats"
 )
 
 const defaultResumeTokensDbName = "resume-tokens"
