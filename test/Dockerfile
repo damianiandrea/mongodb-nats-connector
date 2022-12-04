@@ -1,0 +1,10 @@
+# syntax=docker/dockerfile:1
+
+FROM golang:1.17-alpine
+ENV CGO_ENABLED=0
+WORKDIR /test
+COPY ../go.mod .
+COPY ../go.sum .
+RUN go mod download
+COPY ./test/integration ./integration
+CMD go test -tags integration -v ./integration/...

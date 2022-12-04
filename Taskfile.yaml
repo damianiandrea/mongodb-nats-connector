@@ -1,0 +1,15 @@
+version: '3'
+
+tasks:
+  run:
+    cmds:
+      - docker-compose up --build -d mongo1 mongo2 mongo3 nats1 nats2 nats3 connector
+  stop:
+    cmds:
+      - docker-compose down -v --remove-orphans
+  integration-test:
+    cmds:
+      - cmd: docker-compose up --build --abort-on-container-exit
+        ignore_error: true
+      - docker-compose down -v --remove-orphans
+      - docker image prune -f

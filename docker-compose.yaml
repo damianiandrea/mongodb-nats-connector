@@ -93,6 +93,21 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+  connector-integration-test:
+    depends_on:
+      - connector
+    build:
+      context: .
+      dockerfile: test/Dockerfile
+    image: connector-integration-test:latest
+    container_name: connector-integration-test
+    networks:
+      - connector-net
+    environment:
+      - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=go-mongo-nats-connector
+      - NATS_URL=nats://nats1:4222
+      - RECONNECTION_ATTEMPTS=10
+      - CONNECTOR_HOST=http://connector:8080
 
 networks:
   connector-net:
