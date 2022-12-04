@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/damianiandrea/go-mongo-nats-connector/internal/health"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/mongo"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/nats"
 )
@@ -22,6 +24,7 @@ var (
 	mongoDatabase        = os.Getenv("MONGO_DATABASE")
 	mongoCollectionNames = os.Getenv("MONGO_COLLECTION_NAMES")
 	natsUrl              = os.Getenv("NATS_URL")
+	serverAddr           = os.Getenv("SERVER_ADDR")
 )
 
 type Connector struct {
@@ -92,6 +95,12 @@ func (c *Connector) Run() error {
 			return watcher.WatchCollection(groupCtx, watchCollOpt) // blocking call
 		})
 	}
+
+	group.Go(func() error {
+		mux := http.NewServeMux()
+		mux.Handle("/healthz", &health.Handler{})
+		return http.ListenAndServe(serverAddr, mux)
+	})
 
 	return group.Wait()
 }

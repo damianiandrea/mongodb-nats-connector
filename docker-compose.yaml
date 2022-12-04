@@ -89,6 +89,7 @@ services:
       - MONGO_DATABASE=test-connector
       - MONGO_COLLECTION_NAMES=coll1,coll2
       - NATS_URL=nats://nats1:4222
+      - SERVER_ADDR=:8080
     deploy:
       restart_policy:
         condition: on-failure
