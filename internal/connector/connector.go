@@ -28,10 +28,18 @@ var (
 )
 
 type Connector struct {
+	server *http.Server
 }
 
 func New() *Connector {
-	return &Connector{}
+	mux := http.NewServeMux()
+	mux.Handle("/healthz", &health.Handler{})
+
+	server := &http.Server{
+		Addr:    serverAddr,
+		Handler: mux,
+	}
+	return &Connector{server: server}
 }
 
 func (c *Connector) Run() error {
@@ -97,9 +105,12 @@ func (c *Connector) Run() error {
 	}
 
 	group.Go(func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/healthz", &health.Handler{})
-		return http.ListenAndServe(serverAddr, mux)
+		return c.server.ListenAndServe()
+	})
+
+	group.Go(func() error {
+		<-groupCtx.Done()
+		return c.server.Shutdown(context.Background())
 	})
 
 	return group.Wait()
