@@ -127,6 +127,7 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 		require.NoError(t, sub.Unsubscribe())
 		_, err := coll1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
+		require.NoError(t, natsJs.PurgeStream("COLL1"))
 	})
 }
 
@@ -157,22 +158,23 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 		require.NoError(t, sub.Unsubscribe())
 		_, err := coll1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
+		require.NoError(t, natsJs.PurgeStream("COLL1"))
 	})
 }
 
 func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 	db := mongoClient.Database("test-connector")
-	coll2 := db.Collection("coll2")
+	coll1 := db.Collection("coll1")
 
-	result, err := coll2.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
+	result, err := coll1.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
 	require.NoError(t, err)
 	require.NotNil(t, result.InsertedID)
 
 	filter := bson.D{{Key: "_id", Value: result.InsertedID}}
-	_, err = coll2.DeleteOne(context.Background(), filter)
+	_, err = coll1.DeleteOne(context.Background(), filter)
 	require.NoError(t, err)
 
-	sub, err := natsJs.SubscribeSync("COLL2.delete", nats.DeliverLastPerSubject())
+	sub, err := natsJs.SubscribeSync("COLL1.delete", nats.DeliverLastPerSubject())
 	require.NoError(t, err)
 	msg, err := sub.NextMsg(1 * time.Minute)
 	require.NoError(t, err)
@@ -184,8 +186,9 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
-		_, err := coll2.DeleteMany(context.Background(), bson.D{})
+		_, err := coll1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
+		require.NoError(t, natsJs.PurgeStream("COLL1"))
 	})
 }
 
