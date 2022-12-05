@@ -76,22 +76,23 @@ func TestMain(m *testing.M) {
 }
 
 func TestWatchedCollectionsWereCreated(t *testing.T) {
-	testCollectionsWereCreated(t, "test-connector", "coll1", "coll2")
-}
-
-func TestResumeTokenCollectionsWereCreated(t *testing.T) {
-	testCollectionsWereCreated(t, "resume-tokens", "coll1", "coll2")
-}
-
-func testCollectionsWereCreated(t *testing.T, dbName string, collNames ...string) {
-	db := mongoClient.Database(dbName)
-	opts := options.ListCollections().SetNameOnly(true)
-	colls, err := db.ListCollectionNames(context.Background(), bson.D{}, opts)
+	db := mongoClient.Database("test-connector")
+	colls, err := db.ListCollectionNames(context.Background(), bson.D{})
 
 	require.NoError(t, err)
-	for _, collName := range collNames {
-		require.Contains(t, colls, collName)
-	}
+	require.Contains(t, colls, "coll1")
+	require.Contains(t, colls, "coll2")
+}
+
+func TestResumeTokenCollectionsWereCreatedAndAreCapped(t *testing.T) {
+	db := mongoClient.Database("resume-tokens")
+	colls, err := db.ListCollections(context.Background(), bson.D{})
+	actualColls := make([]mongoColl, 0)
+
+	require.NoError(t, err)
+	require.NoError(t, colls.All(context.Background(), &actualColls))
+	require.Contains(t, actualColls, mongoColl{Name: "coll1", Options: mongoCollOptions{Capped: true, Size: 4096}})
+	require.Contains(t, actualColls, mongoColl{Name: "coll2", Options: mongoCollOptions{Capped: true, Size: 4096}})
 }
 
 func TestStreamsWereCreated(t *testing.T) {
@@ -190,6 +191,16 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, natsJs.PurgeStream("COLL1"))
 	})
+}
+
+type mongoColl struct {
+	Name    string           `bson:"name"`
+	Options mongoCollOptions `bson:"options"`
+}
+
+type mongoCollOptions struct {
+	Capped bool  `bson:"capped"`
+	Size   int64 `bson:"size"`
 }
 
 type changeEvent struct {
