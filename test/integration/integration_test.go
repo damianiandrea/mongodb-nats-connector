@@ -95,15 +95,19 @@ func TestResumeTokenCollectionsWereCreatedAndAreCapped(t *testing.T) {
 	require.Contains(t, actualColls, mongoColl{Name: "coll2", Options: mongoCollOptions{Capped: true, Size: 4096}})
 }
 
-func TestStreamsWereCreated(t *testing.T) {
-	streamsCh := natsJs.StreamNames()
-	streams := make([]string, 0)
+func TestStreamsWereCreatedAndUseFileStorage(t *testing.T) {
+	streamsCh := natsJs.Streams()
+	streams := make(map[string]*nats.StreamInfo, 0)
 	for stream := range streamsCh {
-		streams = append(streams, stream)
+		streams[stream.Config.Name] = stream
 	}
 
-	require.Contains(t, streams, "COLL1")
-	require.Contains(t, streams, "COLL2")
+	require.NotNil(t, streams["COLL1"])
+	require.Contains(t, streams["COLL1"].Config.Subjects, "COLL1.*")
+	require.Equal(t, streams["COLL1"].Config.Storage, nats.FileStorage)
+	require.NotNil(t, streams["COLL2"])
+	require.Contains(t, streams["COLL2"].Config.Subjects, "COLL2.*")
+	require.Equal(t, streams["COLL2"].Config.Storage, nats.FileStorage)
 }
 
 func TestMongoInsertIsPublishedToNats(t *testing.T) {
