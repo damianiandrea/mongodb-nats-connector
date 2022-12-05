@@ -120,8 +120,7 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 
 	expectedMsgData := &changeEvent{FullDocument{Message: "hi"}}
 	actualMsgData := &changeEvent{}
-	err = json.Unmarshal(msg.Data, actualMsgData)
-	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
 	require.Equal(t, expectedMsgData, actualMsgData)
 
 	t.Cleanup(func() {
@@ -151,8 +150,7 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 
 	expectedMsgData := &changeEvent{FullDocument{Message: "bye"}}
 	actualMsgData := &changeEvent{}
-	err = json.Unmarshal(msg.Data, actualMsgData)
-	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
 	require.Equal(t, expectedMsgData, actualMsgData)
 
 	t.Cleanup(func() {
@@ -162,8 +160,41 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 	})
 }
 
+func TestMongoDeleteIsPublishedToNats(t *testing.T) {
+	db := mongoClient.Database("test-connector")
+	coll2 := db.Collection("coll2")
+
+	result, err := coll2.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
+	require.NoError(t, err)
+	require.NotNil(t, result.InsertedID)
+
+	filter := bson.D{{Key: "_id", Value: result.InsertedID}}
+	_, err = coll2.DeleteOne(context.Background(), filter)
+	require.NoError(t, err)
+
+	sub, err := natsJs.SubscribeSync("COLL2.delete", nats.DeliverLastPerSubject())
+	require.NoError(t, err)
+	msg, err := sub.NextMsg(1 * time.Minute)
+	require.NoError(t, err)
+
+	expectedMsgData := &changeEventBefore{FullDocument{Message: "hi"}}
+	actualMsgData := &changeEventBefore{}
+	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
+	require.Equal(t, expectedMsgData, actualMsgData)
+
+	t.Cleanup(func() {
+		require.NoError(t, sub.Unsubscribe())
+		_, err := coll2.DeleteMany(context.Background(), bson.D{})
+		require.NoError(t, err)
+	})
+}
+
 type changeEvent struct {
 	FullDocument `json:"fullDocument"`
+}
+
+type changeEventBefore struct {
+	FullDocument `json:"fullDocumentBeforeChange"`
 }
 
 type FullDocument struct {
