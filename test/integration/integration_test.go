@@ -123,10 +123,11 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 	msg, err := sub.NextMsg(1 * time.Minute)
 	require.NoError(t, err)
 
-	expectedMsgData := &changeEvent{FullDocument: fullDocument{Message: "hi"}}
-	actualMsgData := &changeEvent{}
-	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
-	require.Equal(t, expectedMsgData, actualMsgData)
+	event := &changeEvent{}
+	require.NoError(t, json.Unmarshal(msg.Data, event))
+	require.NotEmpty(t, event.Id.Data)
+	require.Equal(t, event.OperationType, "insert")
+	require.Equal(t, event.FullDocument.Message, "hi")
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
@@ -154,10 +155,11 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 	msg, err := sub.NextMsg(1 * time.Minute)
 	require.NoError(t, err)
 
-	expectedMsgData := &changeEvent{FullDocument: fullDocument{Message: "bye"}}
-	actualMsgData := &changeEvent{}
-	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
-	require.Equal(t, expectedMsgData, actualMsgData)
+	event := &changeEvent{}
+	require.NoError(t, json.Unmarshal(msg.Data, event))
+	require.NotEmpty(t, event.Id.Data)
+	require.Equal(t, event.OperationType, "update")
+	require.Equal(t, event.FullDocument.Message, "bye")
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
@@ -184,10 +186,11 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 	msg, err := sub.NextMsg(1 * time.Minute)
 	require.NoError(t, err)
 
-	expectedMsgData := &changeEvent{FullDocumentBeforeChange: fullDocument{Message: "hi"}}
-	actualMsgData := &changeEvent{}
-	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
-	require.Equal(t, expectedMsgData, actualMsgData)
+	event := &changeEvent{}
+	require.NoError(t, json.Unmarshal(msg.Data, event))
+	require.NotEmpty(t, event.Id.Data)
+	require.Equal(t, event.OperationType, "delete")
+	require.Equal(t, event.FullDocumentBeforeChange.Message, "hi")
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
@@ -208,8 +211,14 @@ type mongoCollOptions struct {
 }
 
 type changeEvent struct {
-	FullDocument             fullDocument `json:"fullDocument"`
-	FullDocumentBeforeChange fullDocument `json:"fullDocumentBeforeChange"`
+	Id                       changeEventId `json:"_id"`
+	OperationType            string        `json:"operationType"`
+	FullDocument             fullDocument  `json:"fullDocument"`
+	FullDocumentBeforeChange fullDocument  `json:"fullDocumentBeforeChange"`
+}
+
+type changeEventId struct {
+	Data string `json:"_data"`
 }
 
 type fullDocument struct {
