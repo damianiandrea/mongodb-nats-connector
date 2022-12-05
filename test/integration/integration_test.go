@@ -25,7 +25,7 @@ var (
 	mongoUri             = os.Getenv("MONGO_URI")
 	natsUrl              = os.Getenv("NATS_URL")
 	reconnectionAttempts = os.Getenv("RECONNECTION_ATTEMPTS")
-	connectorHost        = os.Getenv("CONNECTOR_HOST")
+	connectorHost        = os.Getenv("CONNECTOR_URL")
 
 	mongoClient *mongo.Client
 

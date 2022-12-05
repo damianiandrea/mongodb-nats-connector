@@ -107,7 +107,7 @@ services:
       - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=go-mongo-nats-connector
       - NATS_URL=nats://nats1:4222
       - RECONNECTION_ATTEMPTS=10
-      - CONNECTOR_HOST=http://connector:8080
+      - CONNECTOR_URL=http://connector:8080
 
 networks:
   connector-net:
