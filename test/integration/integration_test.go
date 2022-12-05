@@ -118,13 +118,14 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 
 	msg, err := sub.NextMsg(1 * time.Minute)
 	require.NoError(t, err)
-	require.Equal(t, "COLL1.insert", msg.Subject)
 
 	expectedMsgData := &changeEvent{FullDocument{Message: "hi"}}
 	actualMsgData := &changeEvent{}
 	err = json.Unmarshal(msg.Data, actualMsgData)
 	require.NoError(t, err)
 	require.Equal(t, expectedMsgData, actualMsgData)
+
+	require.NoError(t, sub.Unsubscribe())
 }
 
 type changeEvent struct {
