@@ -123,7 +123,7 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 	msg, err := sub.NextMsg(1 * time.Minute)
 	require.NoError(t, err)
 
-	expectedMsgData := &changeEvent{FullDocument{Message: "hi"}}
+	expectedMsgData := &changeEvent{FullDocument: fullDocument{Message: "hi"}}
 	actualMsgData := &changeEvent{}
 	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
 	require.Equal(t, expectedMsgData, actualMsgData)
@@ -154,7 +154,7 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 	msg, err := sub.NextMsg(1 * time.Minute)
 	require.NoError(t, err)
 
-	expectedMsgData := &changeEvent{FullDocument{Message: "bye"}}
+	expectedMsgData := &changeEvent{FullDocument: fullDocument{Message: "bye"}}
 	actualMsgData := &changeEvent{}
 	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
 	require.Equal(t, expectedMsgData, actualMsgData)
@@ -184,8 +184,8 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 	msg, err := sub.NextMsg(1 * time.Minute)
 	require.NoError(t, err)
 
-	expectedMsgData := &changeEventBefore{FullDocument{Message: "hi"}}
-	actualMsgData := &changeEventBefore{}
+	expectedMsgData := &changeEvent{FullDocumentBeforeChange: fullDocument{Message: "hi"}}
+	actualMsgData := &changeEvent{}
 	require.NoError(t, json.Unmarshal(msg.Data, actualMsgData))
 	require.Equal(t, expectedMsgData, actualMsgData)
 
@@ -208,13 +208,10 @@ type mongoCollOptions struct {
 }
 
 type changeEvent struct {
-	FullDocument `json:"fullDocument"`
+	FullDocument             fullDocument `json:"fullDocument"`
+	FullDocumentBeforeChange fullDocument `json:"fullDocumentBeforeChange"`
 }
 
-type changeEventBefore struct {
-	FullDocument `json:"fullDocumentBeforeChange"`
-}
-
-type FullDocument struct {
+type fullDocument struct {
 	Message string `json:"message"`
 }
