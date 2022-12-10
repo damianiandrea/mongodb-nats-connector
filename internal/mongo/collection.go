@@ -41,7 +41,7 @@ func (c *CollectionCreator) CreateCollection(ctx context.Context, opt *CreateCol
 
 	// enables change stream pre and post images
 	if opt.ChangeStreamPreAndPostImages {
-		err = db.RunCommand(context.Background(), bson.D{{Key: "collMod", Value: opt.CollName},
+		err = db.RunCommand(ctx, bson.D{{Key: "collMod", Value: opt.CollName},
 			{Key: "changeStreamPreAndPostImages", Value: bson.D{{Key: "enabled", Value: true}}}}).Err()
 		if err != nil {
 			return fmt.Errorf("could not enable changeStreamPreAndPostImages on mongo collection %v: %v",
