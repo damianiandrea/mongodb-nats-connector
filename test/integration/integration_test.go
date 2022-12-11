@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,9 +130,17 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 	require.Equal(t, event.OperationType, "insert")
 	require.Equal(t, event.FullDocument.Message, "hi")
 
+	tokensDb := mongoClient.Database("resume-tokens")
+	tokensColl1 := tokensDb.Collection("coll1")
+	await(t, func() bool {
+		return lastResumeTokenIsUpdated(tokensColl1, event)
+	})
+
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
 		_, err := coll1.DeleteMany(context.Background(), bson.D{})
+		require.NoError(t, err)
+		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
 		require.NoError(t, natsJs.PurgeStream("COLL1"))
 	})
@@ -161,9 +170,17 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 	require.Equal(t, event.OperationType, "update")
 	require.Equal(t, event.FullDocument.Message, "bye")
 
+	tokensDb := mongoClient.Database("resume-tokens")
+	tokensColl1 := tokensDb.Collection("coll1")
+	await(t, func() bool {
+		return lastResumeTokenIsUpdated(tokensColl1, event)
+	})
+
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
 		_, err := coll1.DeleteMany(context.Background(), bson.D{})
+		require.NoError(t, err)
+		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
 		require.NoError(t, natsJs.PurgeStream("COLL1"))
 	})
@@ -192,12 +209,48 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 	require.Equal(t, event.OperationType, "delete")
 	require.Equal(t, event.FullDocumentBeforeChange.Message, "hi")
 
+	tokensDb := mongoClient.Database("resume-tokens")
+	tokensColl1 := tokensDb.Collection("coll1")
+	await(t, func() bool {
+		return lastResumeTokenIsUpdated(tokensColl1, event)
+	})
+
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
 		_, err := coll1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
+		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
+		require.NoError(t, err)
 		require.NoError(t, natsJs.PurgeStream("COLL1"))
 	})
+}
+
+func await(t *testing.T, fn func() bool) {
+	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+	for {
+		select {
+		case <-timeout.Done():
+			t.Error("timed out")
+			return
+		default:
+			if ok := fn(); ok {
+				return
+			}
+		}
+	}
+}
+
+func lastResumeTokenIsUpdated(tokensColl1 *mongo.Collection, event *changeEvent) bool {
+	opt := options.FindOne().SetSort(bson.D{{Key: "$natural", Value: -1}})
+	lastToken := &changeEvent{}
+	if err := tokensColl1.FindOne(context.Background(), bson.D{}, opt).Decode(lastToken); err != nil {
+		return false
+	}
+	if strings.Compare(event.Id.Data, lastToken.Id.Data) != 0 {
+		return false
+	}
+	return true
 }
 
 type mongoColl struct {
@@ -211,14 +264,14 @@ type mongoCollOptions struct {
 }
 
 type changeEvent struct {
-	Id                       changeEventId `json:"_id"`
+	Id                       changeEventId `json:"_id" bson:"_id"`
 	OperationType            string        `json:"operationType"`
 	FullDocument             fullDocument  `json:"fullDocument"`
 	FullDocumentBeforeChange fullDocument  `json:"fullDocumentBeforeChange"`
 }
 
 type changeEventId struct {
-	Data string `json:"_data"`
+	Data string `json:"_data" bson:"_data"`
 }
 
 type fullDocument struct {
