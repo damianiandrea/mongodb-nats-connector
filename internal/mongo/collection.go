@@ -18,7 +18,10 @@ type CollectionCreator struct {
 }
 
 func NewCollectionCreator(client *Client, logger *slog.Logger) *CollectionCreator {
-	return &CollectionCreator{wrapped: client, logger: logger}
+	return &CollectionCreator{
+		wrapped: client,
+		logger:  logger,
+	}
 }
 
 func (c *CollectionCreator) CreateCollection(ctx context.Context, opts *CreateCollectionOptions) error {
@@ -68,7 +71,10 @@ type CollectionWatcher struct {
 }
 
 func NewCollectionWatcher(client *Client, logger *slog.Logger, opts ...CollectionWatcherOption) *CollectionWatcher {
-	w := &CollectionWatcher{wrapped: client, logger: logger}
+	w := &CollectionWatcher{
+		wrapped: client,
+		logger:  logger,
+	}
 
 	for _, opt := range opts {
 		opt(w)

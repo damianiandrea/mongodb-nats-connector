@@ -13,7 +13,10 @@ type StreamAdder struct {
 }
 
 func NewStreamAdder(client *Client, logger *slog.Logger) *StreamAdder {
-	return &StreamAdder{wrapped: client, logger: logger}
+	return &StreamAdder{
+		wrapped: client,
+		logger:  logger,
+	}
 }
 
 func (a *StreamAdder) AddStream(streamName string) error {
@@ -35,7 +38,10 @@ type StreamPublisher struct {
 }
 
 func NewStreamPublisher(client *Client, logger *slog.Logger) *StreamPublisher {
-	return &StreamPublisher{wrapped: client, logger: logger}
+	return &StreamPublisher{
+		wrapped: client,
+		logger:  logger,
+	}
 }
 
 func (p *StreamPublisher) Publish(subj, msgId string, data []byte) error {
