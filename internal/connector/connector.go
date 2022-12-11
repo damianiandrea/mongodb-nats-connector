@@ -66,22 +66,22 @@ func (c *Connector) Run() error {
 	collNames := strings.Split(mongoCollectionNames, ",")
 	for _, collName := range collNames {
 
-		createWatchedCollOpt := &mongo.CreateCollectionOption{
+		createWatchedCollOpts := &mongo.CreateCollectionOptions{
 			DbName:                       mongoDatabase,
 			CollName:                     collName,
 			ChangeStreamPreAndPostImages: true,
 		}
-		if err := collCreator.CreateCollection(groupCtx, createWatchedCollOpt); err != nil {
+		if err := collCreator.CreateCollection(groupCtx, createWatchedCollOpts); err != nil {
 			return err
 		}
 
-		createResumeTokensCollOpt := &mongo.CreateCollectionOption{
+		createResumeTokensCollOpts := &mongo.CreateCollectionOptions{
 			DbName:      defaultResumeTokensDbName,
 			CollName:    collName,
 			Capped:      true,
 			SizeInBytes: 4096,
 		}
-		if err := collCreator.CreateCollection(groupCtx, createResumeTokensCollOpt); err != nil {
+		if err := collCreator.CreateCollection(groupCtx, createResumeTokensCollOpts); err != nil {
 			return err
 		}
 
@@ -94,13 +94,13 @@ func (c *Connector) Run() error {
 		_collName := collName // to avoid unexpected behavior
 		group.Go(func() error {
 			watcher := mongo.NewCollectionWatcher(mongoClient, mongo.WithChangeStreamHandler(streamPublisher.Publish))
-			watchCollOpt := &mongo.WatchCollectionOption{
+			watchCollOpts := &mongo.WatchCollectionOptions{
 				WatchedDbName:        mongoDatabase,
 				WatchedCollName:      _collName,
 				ResumeTokensDbName:   defaultResumeTokensDbName,
 				ResumeTokensCollName: _collName,
 			}
-			return watcher.WatchCollection(groupCtx, watchCollOpt) // blocking call
+			return watcher.WatchCollection(groupCtx, watchCollOpts) // blocking call
 		})
 	}
 
