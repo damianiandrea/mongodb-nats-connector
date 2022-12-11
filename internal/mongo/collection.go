@@ -4,20 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/exp/slog"
 )
 
 type CollectionCreator struct {
 	wrapped *Client
+	logger  *slog.Logger
 }
 
-func NewCollectionCreator(client *Client) *CollectionCreator {
-	return &CollectionCreator{wrapped: client}
+func NewCollectionCreator(client *Client, logger *slog.Logger) *CollectionCreator {
+	return &CollectionCreator{wrapped: client, logger: logger}
 }
 
 func (c *CollectionCreator) CreateCollection(ctx context.Context, opts *CreateCollectionOptions) error {
@@ -29,7 +30,6 @@ func (c *CollectionCreator) CreateCollection(ctx context.Context, opts *CreateCo
 
 	// creates the collection if it does not exist
 	if len(collNames) == 0 {
-		log.Printf("creating mongodb collection %v", opts.CollName)
 		mongoOpt := options.CreateCollection()
 		if opts.Capped {
 			mongoOpt.SetCapped(true).SetSizeInBytes(opts.SizeInBytes)
@@ -37,6 +37,7 @@ func (c *CollectionCreator) CreateCollection(ctx context.Context, opts *CreateCo
 		if err := db.CreateCollection(ctx, opts.CollName, mongoOpt); err != nil {
 			return fmt.Errorf("could not create mongo collection %v: %v", opts.CollName, err)
 		}
+		c.logger.Debug("created mongodb collection", "collName", opts.CollName, "dbName", opts.DbName)
 	}
 
 	// enables change stream pre and post images
@@ -61,12 +62,13 @@ type CreateCollectionOptions struct {
 
 type CollectionWatcher struct {
 	wrapped *Client
+	logger  *slog.Logger
 
 	changeStreamHandler ChangeStreamHandler
 }
 
-func NewCollectionWatcher(client *Client, opts ...CollectionWatcherOption) *CollectionWatcher {
-	w := &CollectionWatcher{wrapped: client}
+func NewCollectionWatcher(client *Client, logger *slog.Logger, opts ...CollectionWatcherOption) *CollectionWatcher {
+	w := &CollectionWatcher{wrapped: client, logger: logger}
 
 	for _, opt := range opts {
 		opt(w)
@@ -91,7 +93,7 @@ func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchColl
 		SetFullDocumentBeforeChange(options.WhenAvailable)
 
 	if previousChangeEvent.Id.Data != "" {
-		log.Printf("resuming from %v", previousChangeEvent.Id.Data)
+		w.logger.Debug("resuming after token", "token", previousChangeEvent.Id.Data)
 		changeStreamOpts.SetResumeAfter(bson.D{{Key: "_data", Value: previousChangeEvent.Id.Data}})
 	}
 
@@ -102,7 +104,7 @@ func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchColl
 	if err != nil {
 		return fmt.Errorf("could not watch mongo collection %v: %v", watchedColl.Name(), err)
 	}
-	log.Printf("watching collection %v", watchedColl.Name())
+	w.logger.Info("watching mongodb collection", "collName", watchedColl.Name())
 
 	for cs.Next(ctx) {
 		event := &changeEvent{}
@@ -114,7 +116,7 @@ func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchColl
 		if err != nil {
 			return fmt.Errorf("could not marshal mongo change stream from bson: %v", err)
 		}
-		log.Printf("received change event: %v", string(json))
+		w.logger.Debug("received change stream", "changeStream", string(json))
 
 		subj := fmt.Sprintf("%s.%s", strings.ToUpper(watchedColl.Name()), event.OperationType)
 		if err = w.changeStreamHandler(subj, event.Id.Data, json); err != nil {
@@ -123,7 +125,6 @@ func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchColl
 			// connector will resume from the previous token upon restart.
 			return fmt.Errorf("could not publish to nats stream: %v", err)
 		}
-		log.Printf("published change stream %v on subj %v", string(json), subj)
 
 		if _, err := resumeTokensColl.InsertOne(ctx, event); err != nil {
 			// change event has been published but token insertion failed.
@@ -133,7 +134,7 @@ func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchColl
 		}
 	}
 
-	log.Printf("stopped watching collection %v", watchedColl.Name())
+	w.logger.Info("stopped watching mongodb collection", "collName", watchedColl.Name())
 	return cs.Close(context.Background())
 }
 

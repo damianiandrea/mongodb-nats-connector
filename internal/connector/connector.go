@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/health"
@@ -29,6 +30,7 @@ var (
 
 type Connector struct {
 	server *http.Server
+	logger *slog.Logger
 }
 
 func New() *Connector {
@@ -39,17 +41,22 @@ func New() *Connector {
 		Addr:    serverAddr,
 		Handler: mux,
 	}
-	return &Connector{server: server}
+	loggerOpts := &slog.HandlerOptions{Level: slog.DebugLevel}
+	logger := slog.New(loggerOpts.NewJSONHandler(os.Stdout))
+	return &Connector{
+		server: server,
+		logger: logger,
+	}
 }
 
 func (c *Connector) Run() error {
-	mongoClient, err := mongo.NewClient(mongo.WithMongoUri(mongoUri))
+	mongoClient, err := mongo.NewClient(c.logger, mongo.WithMongoUri(mongoUri))
 	if err != nil {
 		return err
 	}
 	defer closeClient(mongoClient)
 
-	natsClient, err := nats.NewClient(nats.WithNatsUrl(natsUrl))
+	natsClient, err := nats.NewClient(c.logger, nats.WithNatsUrl(natsUrl))
 	if err != nil {
 		return err
 	}
@@ -59,9 +66,9 @@ func (c *Connector) Run() error {
 	defer stop()
 	group, groupCtx := errgroup.WithContext(ctx)
 
-	collCreator := mongo.NewCollectionCreator(mongoClient)
-	streamAdder := nats.NewStreamAdder(natsClient)
-	streamPublisher := nats.NewStreamPublisher(natsClient)
+	collCreator := mongo.NewCollectionCreator(mongoClient, c.logger)
+	streamAdder := nats.NewStreamAdder(natsClient, c.logger)
+	streamPublisher := nats.NewStreamPublisher(natsClient, c.logger)
 
 	collNames := strings.Split(mongoCollectionNames, ",")
 	for _, collName := range collNames {
@@ -93,7 +100,7 @@ func (c *Connector) Run() error {
 
 		_collName := collName // to avoid unexpected behavior
 		group.Go(func() error {
-			watcher := mongo.NewCollectionWatcher(mongoClient, mongo.WithChangeStreamHandler(streamPublisher.Publish))
+			watcher := mongo.NewCollectionWatcher(mongoClient, c.logger, mongo.WithChangeStreamHandler(streamPublisher.Publish))
 			watchCollOpts := &mongo.WatchCollectionOptions{
 				WatchedDbName:        mongoDatabase,
 				WatchedCollName:      _collName,
@@ -105,11 +112,13 @@ func (c *Connector) Run() error {
 	}
 
 	group.Go(func() error {
+		c.logger.Info("connector started", "addr", c.server.Addr)
 		return c.server.ListenAndServe()
 	})
 
 	group.Go(func() error {
 		<-groupCtx.Done()
+		c.logger.Info("connector gracefully shutting down", "addr", c.server.Addr)
 		return c.server.Shutdown(context.Background())
 	})
 

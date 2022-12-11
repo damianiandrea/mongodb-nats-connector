@@ -7,16 +7,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"golang.org/x/exp/slog"
 )
 
 type Client struct {
 	uri string
 
 	client *mongo.Client
+	logger *slog.Logger
 }
 
-func NewClient(opts ...ClientOption) (*Client, error) {
-	c := &Client{}
+func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
+	c := &Client{logger: logger}
 
 	for _, opt := range opts {
 		opt(c)
@@ -32,6 +34,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		return nil, fmt.Errorf("could not ping mongodb: %v", err)
 	}
 
+	c.logger.Info("connected to mongodb", "uri", c.uri)
 	return c, nil
 }
 

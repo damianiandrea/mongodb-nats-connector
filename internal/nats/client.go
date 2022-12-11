@@ -4,17 +4,19 @@ import (
 	"fmt"
 
 	"github.com/nats-io/nats.go"
+	"golang.org/x/exp/slog"
 )
 
 type Client struct {
 	url string
 
-	conn *nats.Conn
-	js   nats.JetStreamContext
+	conn   *nats.Conn
+	js     nats.JetStreamContext
+	logger *slog.Logger
 }
 
-func NewClient(opts ...ClientOption) (*Client, error) {
-	c := &Client{}
+func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
+	c := &Client{logger: logger}
 
 	for _, opt := range opts {
 		opt(c)
@@ -32,6 +34,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 	c.js = js
 
+	c.logger.Info("connected to nats", "url", c.url)
 	return c, nil
 }
 
