@@ -1,6 +1,6 @@
 module github.com/damianiandrea/go-mongo-nats-connector
 
-go 1.17
+go 1.19
 
 require (
 	github.com/nats-io/nats.go v1.19.0
