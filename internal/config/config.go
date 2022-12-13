@@ -106,6 +106,7 @@ type Connector struct {
 	Addr        string        `yaml:"addr"`
 	Mongo       Mongo         `yaml:"mongo"`
 	Nats        Nats          `yaml:"nats"`
+	Log         Log           `yaml:"log"`
 	Collections []*Collection `yaml:"collections"`
 }
 
@@ -115,6 +116,10 @@ type Mongo struct {
 
 type Nats struct {
 	Url string `yaml:"url"`
+}
+
+type Log struct {
+	Level string `yaml:"level"`
 }
 
 type Collection struct {

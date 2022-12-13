@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"golang.org/x/exp/slog"
@@ -25,7 +26,8 @@ type Connector struct {
 }
 
 func New(cfg *config.Config) *Connector {
-	loggerOpts := &slog.HandlerOptions{Level: slog.DebugLevel}
+	logLevel := convertLogLevel(cfg.Connector.Log.Level)
+	loggerOpts := &slog.HandlerOptions{Level: logLevel}
 	logger := slog.New(loggerOpts.NewJSONHandler(os.Stdout))
 
 	mux := http.NewServeMux()
@@ -112,6 +114,21 @@ func (c *Connector) Run() error {
 	})
 
 	return group.Wait()
+}
+
+func convertLogLevel(logLevel string) slog.Level {
+	switch strings.ToLower(logLevel) {
+	case "debug":
+		return slog.DebugLevel
+	case "warn":
+		return slog.WarnLevel
+	case "error":
+		return slog.ErrorLevel
+	case "info":
+		fallthrough
+	default:
+		return slog.InfoLevel
+	}
 }
 
 func closeClient(closer io.Closer) {

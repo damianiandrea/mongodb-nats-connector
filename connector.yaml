@@ -1,4 +1,6 @@
 connector:
+  log:
+    level: "debug"
   collections:
     - dbName: "test-connector"
       collName: "coll1"
