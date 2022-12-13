@@ -241,16 +241,13 @@ func await(t *testing.T, fn func() bool) {
 	}
 }
 
-func lastResumeTokenIsUpdated(tokensColl1 *mongo.Collection, event *changeEvent) bool {
+func lastResumeTokenIsUpdated(tokensColl *mongo.Collection, event *changeEvent) bool {
 	opt := options.FindOne().SetSort(bson.D{{Key: "$natural", Value: -1}})
 	lastToken := &changeEvent{}
-	if err := tokensColl1.FindOne(context.Background(), bson.D{}, opt).Decode(lastToken); err != nil {
+	if err := tokensColl.FindOne(context.Background(), bson.D{}, opt).Decode(lastToken); err != nil {
 		return false
 	}
-	if strings.Compare(event.Id.Data, lastToken.Id.Data) != 0 {
-		return false
-	}
-	return true
+	return strings.Compare(event.Id.Data, lastToken.Id.Data) == 0
 }
 
 type mongoColl struct {
