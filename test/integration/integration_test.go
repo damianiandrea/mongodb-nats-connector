@@ -26,7 +26,7 @@ var (
 	mongoUri             = os.Getenv("MONGO_URI")
 	natsUrl              = os.Getenv("NATS_URL")
 	reconnectionAttempts = os.Getenv("RECONNECTION_ATTEMPTS")
-	connectorHost        = os.Getenv("CONNECTOR_URL")
+	connectorUrl         = os.Getenv("CONNECTOR_URL")
 
 	mongoClient *mongo.Client
 
@@ -55,7 +55,7 @@ func TestMain(m *testing.M) {
 
 	attemptsLeft, _ := strconv.ParseUint(reconnectionAttempts, 10, 64)
 	for attemptsLeft > 0 {
-		response, err := http.Get(fmt.Sprintf("%s/healthz", connectorHost))
+		response, err := http.Get(fmt.Sprintf("%s/healthz", connectorUrl))
 		if err == nil && response.StatusCode == http.StatusOK {
 			break
 		}
