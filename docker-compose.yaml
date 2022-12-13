@@ -86,8 +86,6 @@ services:
       - connector-net
     environment:
       - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=go-mongo-nats-connector
-      - MONGO_DATABASE=test-connector
-      - MONGO_COLLECTION_NAMES=coll1,coll2
       - NATS_URL=nats://nats1:4222
       - SERVER_ADDR=:8080
     deploy:

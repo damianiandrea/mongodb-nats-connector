@@ -7,56 +7,49 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/damianiandrea/go-mongo-nats-connector/internal/config"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/health"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/mongo"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/nats"
 )
 
-const defaultResumeTokensDbName = "resume-tokens"
-
-var (
-	mongoUri             = os.Getenv("MONGO_URI")
-	mongoDatabase        = os.Getenv("MONGO_DATABASE")
-	mongoCollectionNames = os.Getenv("MONGO_COLLECTION_NAMES")
-	natsUrl              = os.Getenv("NATS_URL")
-	serverAddr           = os.Getenv("SERVER_ADDR")
-)
-
 type Connector struct {
-	server *http.Server
+	cfg    *config.Config
 	logger *slog.Logger
+	server *http.Server
 }
 
-func New() *Connector {
-	mux := http.NewServeMux()
-	mux.Handle("/healthz", &health.Handler{})
-
-	server := &http.Server{
-		Addr:    serverAddr,
-		Handler: mux,
-	}
+func New(cfg *config.Config) *Connector {
 	loggerOpts := &slog.HandlerOptions{Level: slog.DebugLevel}
 	logger := slog.New(loggerOpts.NewJSONHandler(os.Stdout))
+
+	mux := http.NewServeMux()
+	mux.Handle("/healthz", &health.Handler{})
+	server := &http.Server{
+		Addr:    cfg.Connector.Addr,
+		Handler: mux,
+	}
+
 	return &Connector{
-		server: server,
+		cfg:    cfg,
 		logger: logger,
+		server: server,
 	}
 }
 
 func (c *Connector) Run() error {
-	mongoClient, err := mongo.NewClient(c.logger, mongo.WithMongoUri(mongoUri))
+	mongoClient, err := mongo.NewClient(c.logger, mongo.WithMongoUri(c.cfg.Connector.Mongo.Uri))
 	if err != nil {
 		return err
 	}
 	defer closeClient(mongoClient)
 
-	natsClient, err := nats.NewClient(c.logger, nats.WithNatsUrl(natsUrl))
+	natsClient, err := nats.NewClient(c.logger, nats.WithNatsUrl(c.cfg.Connector.Nats.Url))
 	if err != nil {
 		return err
 	}
@@ -70,42 +63,38 @@ func (c *Connector) Run() error {
 	streamAdder := nats.NewStreamAdder(natsClient, c.logger)
 	streamPublisher := nats.NewStreamPublisher(natsClient, c.logger)
 
-	collNames := strings.Split(mongoCollectionNames, ",")
-	for _, collName := range collNames {
-
+	for _, _coll := range c.cfg.Connector.Collections {
+		coll := _coll // to avoid unexpected behavior
 		createWatchedCollOpts := &mongo.CreateCollectionOptions{
-			DbName:                       mongoDatabase,
-			CollName:                     collName,
-			ChangeStreamPreAndPostImages: true,
+			DbName:                       coll.DbName,
+			CollName:                     coll.CollName,
+			ChangeStreamPreAndPostImages: *coll.ChangeStreamPreAndPostImages,
 		}
 		if err := collCreator.CreateCollection(groupCtx, createWatchedCollOpts); err != nil {
 			return err
 		}
 
 		createResumeTokensCollOpts := &mongo.CreateCollectionOptions{
-			DbName:      defaultResumeTokensDbName,
-			CollName:    collName,
-			Capped:      true,
-			SizeInBytes: 4096,
+			DbName:      coll.TokensDbName,
+			CollName:    coll.TokensCollName,
+			Capped:      *coll.TokensCollCapped,
+			SizeInBytes: *coll.TokensCollSize,
 		}
 		if err := collCreator.CreateCollection(groupCtx, createResumeTokensCollOpts); err != nil {
 			return err
 		}
 
-		// by default stream name is the uppercase of the coll name
-		streamName := strings.ToUpper(collName)
-		if err := streamAdder.AddStream(streamName); err != nil {
+		if err := streamAdder.AddStream(coll.StreamName); err != nil {
 			return err
 		}
 
-		_collName := collName // to avoid unexpected behavior
 		group.Go(func() error {
 			watcher := mongo.NewCollectionWatcher(mongoClient, c.logger, mongo.WithChangeStreamHandler(streamPublisher.Publish))
 			watchCollOpts := &mongo.WatchCollectionOptions{
-				WatchedDbName:        mongoDatabase,
-				WatchedCollName:      _collName,
-				ResumeTokensDbName:   defaultResumeTokensDbName,
-				ResumeTokensCollName: _collName,
+				WatchedDbName:        coll.DbName,
+				WatchedCollName:      coll.CollName,
+				ResumeTokensDbName:   coll.TokensDbName,
+				ResumeTokensCollName: coll.TokensCollName,
 			}
 			return watcher.WatchCollection(groupCtx, watchCollOpts) // blocking call
 		})
