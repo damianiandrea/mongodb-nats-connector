@@ -4,6 +4,9 @@ tasks:
   run:
     cmds:
       - docker-compose up --build -d mongo1 mongo2 mongo3 nats1 nats2 nats3 connector
+  log:
+    cmds:
+      - docker-compose logs -f connector
   stop:
     cmds:
       - docker-compose down -v --remove-orphans
