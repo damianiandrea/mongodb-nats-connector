@@ -96,7 +96,7 @@ services:
       - connector
     build:
       context: .
-      dockerfile: test/Dockerfile
+      dockerfile: Dockerfile-it
     image: connector-integration-test:latest
     container_name: connector-integration-test
     networks:
