@@ -1,10 +1,8 @@
 # syntax=docker/dockerfile:1
 
 FROM golang:1.19-alpine
-ENV CGO_ENABLED=0
 WORKDIR /test
-COPY go.mod .
-COPY go.sum .
+COPY go.* .
 RUN go mod download
 COPY ./test/integration ./integration
-CMD go test -tags integration -v ./integration/...
+CMD CGO_ENABLED=0 go test -tags integration -v ./integration/...
