@@ -2,7 +2,7 @@
 
 FROM golang:1.19-alpine AS build
 WORKDIR /go/src/github.com/damianiandrea/go-mongo-nats-connector
-COPY go.* .
+COPY go.* ./
 RUN go mod download
 COPY . .
 RUN go build -o /go/bin/connector ./cmd/connector

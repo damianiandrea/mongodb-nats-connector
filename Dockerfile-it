@@ -2,7 +2,7 @@
 
 FROM golang:1.19-alpine
 WORKDIR /test
-COPY go.* .
+COPY go.* ./
 RUN go mod download
 COPY ./test/integration ./integration
 CMD CGO_ENABLED=0 go test -tags integration -v ./integration/...
