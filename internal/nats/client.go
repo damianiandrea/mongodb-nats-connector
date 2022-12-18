@@ -34,7 +34,7 @@ func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
 	}
 	c.js = js
 
-	c.logger.Info("connected to nats", "url", c.url)
+	c.logger.Info("connected to nats", "url", conn.ConnectedUrlRedacted())
 	return c, nil
 }
 
