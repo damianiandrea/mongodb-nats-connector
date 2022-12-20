@@ -76,6 +76,18 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+func TestHealthzEndpoint(t *testing.T) {
+	response, err := http.Get(fmt.Sprintf("%s/healthz", connectorUrl))
+	healthRes := &healthResponse{}
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	require.NoError(t, json.NewDecoder(response.Body).Decode(healthRes))
+	require.Equal(t, healthRes.Status, "UP")
+	require.Equal(t, healthRes.Components.Mongo.Status, "UP")
+	require.Equal(t, healthRes.Components.Nats.Status, "UP")
+}
+
 func TestWatchedCollectionsWereCreated(t *testing.T) {
 	db := mongoClient.Database("test-connector")
 	colls, err := db.ListCollectionNames(context.Background(), bson.D{})
@@ -248,6 +260,24 @@ func lastResumeTokenIsUpdated(tokensColl *mongo.Collection, event *changeEvent) 
 		return false
 	}
 	return strings.Compare(event.Id.Data, lastToken.Id.Data) == 0
+}
+
+type healthResponse struct {
+	Status     string     `json:"status"`
+	Components components `json:"components"`
+}
+
+type components struct {
+	Mongo mongoComponent `json:"mongo"`
+	Nats  natsComponent  `json:"nats"`
+}
+
+type mongoComponent struct {
+	Status string `json:"status"`
+}
+
+type natsComponent struct {
+	Status string `json:"status"`
 }
 
 type mongoColl struct {
