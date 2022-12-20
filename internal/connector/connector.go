@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,50 +21,64 @@ import (
 )
 
 type Connector struct {
-	cfg    *config.Config
-	logger *slog.Logger
-	server *http.Server
+	ctx  context.Context
+	stop context.CancelFunc
+
+	cfg         *config.Config
+	logger      *slog.Logger
+	mongoClient *mongo.Client
+	natsClient  *nats.Client
+	server      *http.Server
 }
 
-func New(cfg *config.Config) *Connector {
+func New(cfg *config.Config) (*Connector, error) {
 	logLevel := convertLogLevel(cfg.Connector.Log.Level)
 	loggerOpts := &slog.HandlerOptions{Level: logLevel}
 	logger := slog.New(loggerOpts.NewJSONHandler(os.Stdout))
 
+	mongoClient, err := mongo.NewClient(logger, mongo.WithMongoUri(cfg.Connector.Mongo.Uri))
+	if err != nil {
+		return nil, err
+	}
+
+	natsClient, err := nats.NewClient(logger, nats.WithNatsUrl(cfg.Connector.Nats.Url))
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+
 	mux := http.NewServeMux()
-	mux.Handle("/healthz", &health.Handler{})
+	mux.Handle("/healthz", health.NewHandler(mongoClient, natsClient))
 	server := &http.Server{
 		Addr:    cfg.Connector.Addr,
 		Handler: mux,
+		BaseContext: func(l net.Listener) context.Context {
+			return ctx
+		},
 	}
 
 	return &Connector{
-		cfg:    cfg,
-		logger: logger,
-		server: server,
-	}
+		ctx:         ctx,
+		stop:        stop,
+		cfg:         cfg,
+		logger:      logger,
+		mongoClient: mongoClient,
+		natsClient:  natsClient,
+		server:      server,
+	}, nil
 }
 
 func (c *Connector) Run() error {
-	mongoClient, err := mongo.NewClient(c.logger, mongo.WithMongoUri(c.cfg.Connector.Mongo.Uri))
-	if err != nil {
-		return err
-	}
-	defer closeClient(mongoClient)
+	defer closeClient(c.mongoClient)
+	defer closeClient(c.natsClient)
+	defer c.stop()
 
-	natsClient, err := nats.NewClient(c.logger, nats.WithNatsUrl(c.cfg.Connector.Nats.Url))
-	if err != nil {
-		return err
-	}
-	defer closeClient(natsClient)
+	group, groupCtx := errgroup.WithContext(c.ctx)
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-	group, groupCtx := errgroup.WithContext(ctx)
-
-	collCreator := mongo.NewCollectionCreator(mongoClient, c.logger)
-	streamAdder := nats.NewStreamAdder(natsClient, c.logger)
-	streamPublisher := nats.NewStreamPublisher(natsClient, c.logger)
+	collCreator := mongo.NewCollectionCreator(c.mongoClient, c.logger)
+	streamAdder := nats.NewStreamAdder(c.natsClient, c.logger)
+	streamPublisher := nats.NewStreamPublisher(c.natsClient, c.logger)
 
 	for _, _coll := range c.cfg.Connector.Collections {
 		coll := _coll // to avoid unexpected behavior
@@ -91,7 +106,7 @@ func (c *Connector) Run() error {
 		}
 
 		group.Go(func() error {
-			watcher := mongo.NewCollectionWatcher(mongoClient, c.logger, mongo.WithChangeStreamHandler(streamPublisher.Publish))
+			watcher := mongo.NewCollectionWatcher(c.mongoClient, c.logger, mongo.WithChangeStreamHandler(streamPublisher.Publish))
 			watchCollOpts := &mongo.WatchCollectionOptions{
 				WatchedDbName:        coll.DbName,
 				WatchedCollName:      coll.CollName,

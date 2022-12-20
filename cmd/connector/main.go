@@ -19,7 +19,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("error while loading config: %v", err)
 	}
-	if err = connector.New(cfg).Run(); err != nil {
-		log.Fatalf("exiting: %v", err)
+	if conn, err := connector.New(cfg); err != nil {
+		log.Fatalf("could not create connector: %v", err)
+	} else {
+		log.Fatalf("exiting: %v", conn.Run())
 	}
 }
