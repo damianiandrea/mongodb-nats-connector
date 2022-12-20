@@ -2,7 +2,7 @@
 
 A connector that uses MongoDB's change streams to capture data changes and publishes those changes to Nats JetStream.
 
-I wanted an easy way to do CDC (change data capture) with MongoDB and sink the data to NATS, and couldn't find any existing solution, so
+I wanted an easy way to do CDC (change data capture) with MongoDB and sink the data to NATS, but couldn't find any existing solution, so
 I decided to build my own.
 
 # Quick Start
