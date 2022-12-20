@@ -84,6 +84,8 @@ services:
     container_name: connector
     networks:
       - connector-net
+    ports:
+      - "8080:8080"
     environment:
       - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=go-mongo-nats-connector
       - NATS_URL=nats://nats1:4222
