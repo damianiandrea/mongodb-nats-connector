@@ -30,12 +30,19 @@ func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
 	}
 	c.client = client
 
-	if err = client.Ping(context.Background(), readpref.Primary()); err != nil {
-		return nil, fmt.Errorf("could not ping mongodb: %v", err)
+	if err = c.Ping(context.Background()); err != nil {
+		return nil, err
 	}
 
 	c.logger.Info("connected to mongodb", "uri", c.uri)
 	return c, nil
+}
+
+func (c *Client) Ping(ctx context.Context) error {
+	if err := c.client.Ping(ctx, readpref.Primary()); err != nil {
+		return fmt.Errorf("could not ping mongodb: %v", err)
+	}
+	return nil
 }
 
 func (c *Client) Close() error {

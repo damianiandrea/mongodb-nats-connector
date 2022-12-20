@@ -1,6 +1,8 @@
 package nats
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/nats-io/nats.go"
@@ -28,6 +30,10 @@ func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
 	}
 	c.conn = conn
 
+	if err = c.Ping(context.Background()); err != nil {
+		return nil, err
+	}
+
 	js, err := conn.JetStream()
 	if err != nil {
 		return nil, fmt.Errorf("could not create nats jetstream context: %v", err)
@@ -36,6 +42,13 @@ func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
 
 	c.logger.Info("connected to nats", "url", conn.ConnectedUrlRedacted())
 	return c, nil
+}
+
+func (c *Client) Ping(_ context.Context) error {
+	if closed := c.conn.IsClosed(); closed {
+		return errors.New("could not ping nats: connection closed")
+	}
+	return nil
 }
 
 func (c *Client) Close() error {
