@@ -1,4 +1,4 @@
-# Mongo-Nats Connector
+# MongoDB-NATS Connector
 
 ![CI](https://github.com/damianiandrea/go-mongo-nats-connector/actions/workflows/ci.yml/badge.svg)
 
@@ -7,7 +7,7 @@ A connector that uses MongoDB's change streams to capture data changes and publi
 I wanted an easy way to do CDC (change data capture) with MongoDB and sink the data to NATS, but couldn't find any existing solution, so
 I decided to build my own.
 
-# Quick Start
+## Quick Start
 
 After cloning the repository you can use the following command to run a MongoDB replica set, a NATS cluster with 
 JetStream enabled, and the connector itself.
@@ -31,9 +31,11 @@ and `coll2`, if they do not already exist. These are the collections to be watch
 and `coll2`, if they do not already exist. These are the collections where the resume tokens will be stored. 
 * Create two streams on NATS JetStream, `COLL1` and `COLL2`, if they do not already exist.
 * Start watching the `coll1` and `coll2` collections, publishing any change event to NATS `COLL1` and `COLL2` streams 
-respectively.
+respectively. Depending on the operation type, a different stream subject will be used, for example inserting a document
+in `coll1` will result in a message being published on `COLL1.insert`, for updates it will be `COLL1.update`, and for 
+deletions `COLL1.delete`.
 
-# Resume Tokens
+## Resume Tokens
 
 A MongoDB change stream is composed of change events and each change event has an `_id` field that contains a resume token.
 Resume tokens are used to resume the processing of change streams in case of interruptions.
@@ -51,7 +53,7 @@ While in the first two cases there will be no issues, in the third case, however
 For this reason the connector uses the resume token as a NATS message id, so that NATS consumers can use it as a way
 to discard duplicates.
 
-# Customization
+## Customization
 
 You can easily override any configuration by providing your own `connector.yaml` file.
 
