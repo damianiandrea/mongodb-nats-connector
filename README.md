@@ -70,4 +70,4 @@ connector:
 
 The configuration above will tell the connector to start watching the `tweets` collection in the `twitter-db` database, 
 and to publish its changes to the `TWEETS` stream. It will also tell the connector to store the resume tokens in a capped 
-collection of size 4096, with the same name, but in a different database, named `resume-tokens`.
+collection of size 4096, with the same name as the watched collection, but in a different database, named `resume-tokens`.
