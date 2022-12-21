@@ -1,5 +1,7 @@
 # Mongo-Nats Connector
 
+![CI](https://github.com/damianiandrea/go-mongo-nats-connector/actions/workflows/ci.yml/badge.svg)
+
 A connector that uses MongoDB's change streams to capture data changes and publishes those changes to NATS JetStream.
 
 I wanted an easy way to do CDC (change data capture) with MongoDB and sink the data to NATS, but couldn't find any existing solution, so
