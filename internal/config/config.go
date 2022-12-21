@@ -21,12 +21,13 @@ const (
 )
 
 func Load(configFileName string) (*Config, error) {
-	configFile, err := os.ReadFile(configFileName)
+	configFile, err := os.Open(configFileName)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config file: %v", err)
 	}
+	defer configFile.Close()
 	config := &Config{}
-	if err = yaml.Unmarshal(configFile, config); err != nil {
+	if err = yaml.NewDecoder(configFile).Decode(config); err != nil {
 		return nil, fmt.Errorf("could not unmarshal config file: %v", err)
 	}
 	if err = validateAndSetDefaults(config); err != nil {
