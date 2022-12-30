@@ -66,21 +66,13 @@ type CreateCollectionOptions struct {
 type CollectionWatcher struct {
 	wrapped *Client
 	logger  *slog.Logger
-
-	changeStreamHandler ChangeStreamHandler
 }
 
-func NewCollectionWatcher(client *Client, logger *slog.Logger, opts ...CollectionWatcherOption) *CollectionWatcher {
-	w := &CollectionWatcher{
+func NewCollectionWatcher(client *Client, logger *slog.Logger) *CollectionWatcher {
+	return &CollectionWatcher{
 		wrapped: client,
 		logger:  logger,
 	}
-
-	for _, opt := range opts {
-		opt(w)
-	}
-
-	return w
 }
 
 func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error {
@@ -125,7 +117,7 @@ func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchColl
 		w.logger.Debug("received change stream", "changeStream", string(json))
 
 		subj := fmt.Sprintf("%s.%s", strings.ToUpper(watchedColl.Name()), event.OperationType)
-		if err = w.changeStreamHandler(subj, event.Id.Data, json); err != nil {
+		if err = opts.ChangeStreamHandler(subj, event.Id.Data, json); err != nil {
 			// nats error: current change stream must be retried.
 			// does not save current resume token, stops the connector.
 			// connector will resume from the previous token upon restart.
@@ -144,21 +136,14 @@ func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchColl
 	return cs.Close(context.Background())
 }
 
-type CollectionWatcherOption func(*CollectionWatcher)
-
 type ChangeStreamHandler func(subj, msgId string, data []byte) error
-
-func WithChangeStreamHandler(csHandler ChangeStreamHandler) CollectionWatcherOption {
-	return func(w *CollectionWatcher) {
-		w.changeStreamHandler = csHandler
-	}
-}
 
 type WatchCollectionOptions struct {
 	WatchedDbName        string
 	WatchedCollName      string
 	ResumeTokensDbName   string
 	ResumeTokensCollName string
+	ChangeStreamHandler  ChangeStreamHandler
 }
 
 type changeEvent struct {

@@ -76,6 +76,7 @@ func (c *Connector) Run() error {
 	group, groupCtx := errgroup.WithContext(c.ctx)
 
 	collCreator := mongo.NewCollectionCreator(c.mongoClient, c.logger)
+	collWatcher := mongo.NewCollectionWatcher(c.mongoClient, c.logger)
 	streamAdder := nats.NewStreamAdder(c.natsClient, c.logger)
 	streamPublisher := nats.NewStreamPublisher(c.natsClient, c.logger)
 
@@ -105,14 +106,14 @@ func (c *Connector) Run() error {
 		}
 
 		group.Go(func() error {
-			watcher := mongo.NewCollectionWatcher(c.mongoClient, c.logger, mongo.WithChangeStreamHandler(streamPublisher.Publish))
 			watchCollOpts := &mongo.WatchCollectionOptions{
 				WatchedDbName:        coll.DbName,
 				WatchedCollName:      coll.CollName,
 				ResumeTokensDbName:   coll.TokensDbName,
 				ResumeTokensCollName: coll.TokensCollName,
+				ChangeStreamHandler:  streamPublisher.Publish,
 			}
-			return watcher.WatchCollection(groupCtx, watchCollOpts) // blocking call
+			return collWatcher.WatchCollection(groupCtx, watchCollOpts) // blocking call
 		})
 	}
 
