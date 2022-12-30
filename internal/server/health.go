@@ -27,10 +27,10 @@ func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Components: components,
 	}
 	for _, component := range h.components {
-		if err := component.Ping(r.Context()); err != nil {
-			response.Components[component.Name()] = monitoredComponents{Status: DOWN}
-		} else {
+		if err := component.Ping(r.Context()); err == nil {
 			response.Components[component.Name()] = monitoredComponents{Status: UP}
+		} else {
+			response.Components[component.Name()] = monitoredComponents{Status: DOWN}
 		}
 	}
 	writeJson(w, http.StatusOK, response)
