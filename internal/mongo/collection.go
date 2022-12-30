@@ -76,64 +76,69 @@ func NewCollectionWatcher(client *Client, logger *slog.Logger) *CollectionWatche
 }
 
 func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error {
-	resumeTokensDb := w.wrapped.client.Database(opts.ResumeTokensDbName)
-	resumeTokensColl := resumeTokensDb.Collection(opts.ResumeTokensCollName)
+	for {
+		resumeTokensDb := w.wrapped.client.Database(opts.ResumeTokensDbName)
+		resumeTokensColl := resumeTokensDb.Collection(opts.ResumeTokensCollName)
 
-	findOneOpts := options.FindOne().SetSort(bson.D{{Key: "$natural", Value: -1}})
-	resumeToken := resumeTokensColl.FindOne(ctx, bson.D{}, findOneOpts)
-	previousChangeEvent := &changeEvent{}
-	if err := resumeToken.Decode(previousChangeEvent); err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
-		return fmt.Errorf("could not fetch or decode resume token: %v", err)
-	}
-
-	changeStreamOpts := options.ChangeStream().
-		SetFullDocument(options.UpdateLookup).
-		SetFullDocumentBeforeChange(options.WhenAvailable)
-
-	if previousChangeEvent.Id.Data != "" {
-		w.logger.Debug("resuming after token", "token", previousChangeEvent.Id.Data)
-		changeStreamOpts.SetResumeAfter(bson.D{{Key: "_data", Value: previousChangeEvent.Id.Data}})
-	}
-
-	watchedDb := w.wrapped.client.Database(opts.WatchedDbName)
-	watchedColl := watchedDb.Collection(opts.WatchedCollName)
-
-	cs, err := watchedColl.Watch(ctx, mongo.Pipeline{}, changeStreamOpts)
-	if err != nil {
-		return fmt.Errorf("could not watch mongo collection %v: %v", watchedColl.Name(), err)
-	}
-	w.logger.Info("watching mongodb collection", "collName", watchedColl.Name())
-
-	for cs.Next(ctx) {
-		event := &changeEvent{}
-		if err = cs.Decode(event); err != nil {
-			return fmt.Errorf("could not decode mongo change stream: %v", err)
+		findOneOpts := options.FindOne().SetSort(bson.D{{Key: "$natural", Value: -1}})
+		resumeToken := resumeTokensColl.FindOne(ctx, bson.D{}, findOneOpts)
+		previousChangeEvent := &changeEvent{}
+		if err := resumeToken.Decode(previousChangeEvent); err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+			return fmt.Errorf("could not fetch or decode resume token: %v", err)
 		}
 
-		json, err := bson.MarshalExtJSON(cs.Current, false, false)
+		changeStreamOpts := options.ChangeStream().
+			SetFullDocument(options.UpdateLookup).
+			SetFullDocumentBeforeChange(options.WhenAvailable)
+
+		if previousChangeEvent.Id.Data != "" {
+			w.logger.Debug("resuming after token", "token", previousChangeEvent.Id.Data)
+			changeStreamOpts.SetResumeAfter(bson.D{{Key: "_data", Value: previousChangeEvent.Id.Data}})
+		}
+
+		watchedDb := w.wrapped.client.Database(opts.WatchedDbName)
+		watchedColl := watchedDb.Collection(opts.WatchedCollName)
+
+		cs, err := watchedColl.Watch(ctx, mongo.Pipeline{}, changeStreamOpts)
 		if err != nil {
-			return fmt.Errorf("could not marshal mongo change stream from bson: %v", err)
+			return fmt.Errorf("could not watch mongo collection %v: %v", watchedColl.Name(), err)
 		}
-		w.logger.Debug("received change stream", "changeStream", string(json))
+		w.logger.Info("watching mongodb collection", "collName", watchedColl.Name())
 
-		subj := fmt.Sprintf("%s.%s", strings.ToUpper(watchedColl.Name()), event.OperationType)
-		if err = opts.ChangeStreamHandler(subj, event.Id.Data, json); err != nil {
-			// nats error: current change stream must be retried.
-			// does not save current resume token, stops the connector.
-			// connector will resume from the previous token upon restart.
-			return fmt.Errorf("could not publish to nats stream: %v", err)
+		for cs.Next(ctx) {
+			event := &changeEvent{}
+			if err = cs.Decode(event); err != nil {
+				return fmt.Errorf("could not decode mongo change stream: %v", err)
+			}
+
+			json, err := bson.MarshalExtJSON(cs.Current, false, false)
+			if err != nil {
+				return fmt.Errorf("could not marshal mongo change stream from bson: %v", err)
+			}
+			w.logger.Debug("received change stream", "changeStream", string(json))
+
+			subj := fmt.Sprintf("%s.%s", strings.ToUpper(watchedColl.Name()), event.OperationType)
+			if err = opts.ChangeStreamHandler(subj, event.Id.Data, json); err != nil {
+				// nats error: current change stream was not published to nats.
+				// connector will retry from the previous token.
+				w.logger.Error("could not publish to nats stream", err)
+				break
+			}
+
+			if _, err = resumeTokensColl.InsertOne(ctx, event); err != nil {
+				// change event has been published to nats but token insertion failed.
+				// connector will retry from the previous token, publishing a duplicate change event.
+				// the duplicate change event should be discarded by consumers because of the nats msg id.
+				w.logger.Error("could not insert resume token", err)
+				break
+			}
 		}
 
-		if _, err := resumeTokensColl.InsertOne(ctx, event); err != nil {
-			// change event has been published but token insertion failed.
-			// connector will resume from the previous token upon restart publishing a duplicate change event.
-			// the duplicate change event will be discarded by consumers because of the nats msg id.
-			return fmt.Errorf("could not insert resume token: %v", err)
+		w.logger.Info("stopped watching mongodb collection", "collName", watchedColl.Name())
+		if err = cs.Close(context.Background()); err != nil {
+			return err
 		}
 	}
-
-	w.logger.Info("stopped watching mongodb collection", "collName", watchedColl.Name())
-	return cs.Close(context.Background())
 }
 
 type ChangeStreamHandler func(subj, msgId string, data []byte) error
