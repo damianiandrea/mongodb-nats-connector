@@ -9,6 +9,8 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+const natsComponentName = "nats"
+
 type Client struct {
 	url string
 
@@ -42,6 +44,10 @@ func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
 
 	c.logger.Info("connected to nats", "url", conn.ConnectedUrlRedacted())
 	return c, nil
+}
+
+func (c *Client) Name() string {
+	return natsComponentName
 }
 
 func (c *Client) Ping(_ context.Context) error {

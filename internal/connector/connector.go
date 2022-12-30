@@ -4,8 +4,6 @@ import (
 	"context"
 	"io"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,9 +13,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/config"
-	"github.com/damianiandrea/go-mongo-nats-connector/internal/health"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/mongo"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/nats"
+	"github.com/damianiandrea/go-mongo-nats-connector/internal/server"
 )
 
 type Connector struct {
@@ -28,7 +26,7 @@ type Connector struct {
 	logger      *slog.Logger
 	mongoClient *mongo.Client
 	natsClient  *nats.Client
-	server      *http.Server
+	server      *server.Server
 }
 
 func New(cfg *config.Config) (*Connector, error) {
@@ -36,27 +34,30 @@ func New(cfg *config.Config) (*Connector, error) {
 	loggerOpts := &slog.HandlerOptions{Level: logLevel}
 	logger := slog.New(loggerOpts.NewJSONHandler(os.Stdout))
 
-	mongoClient, err := mongo.NewClient(logger, mongo.WithMongoUri(cfg.Connector.Mongo.Uri))
+	mongoClient, err := mongo.NewClient(
+		logger,
+		mongo.WithMongoUri(cfg.Connector.Mongo.Uri),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	natsClient, err := nats.NewClient(logger, nats.WithNatsUrl(cfg.Connector.Nats.Url))
+	natsClient, err := nats.NewClient(
+		logger,
+		nats.WithNatsUrl(cfg.Connector.Nats.Url),
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
-	mux := http.NewServeMux()
-	mux.Handle("/healthz", health.NewHandler(mongoClient, natsClient))
-	server := &http.Server{
-		Addr:    cfg.Connector.Addr,
-		Handler: mux,
-		BaseContext: func(l net.Listener) context.Context {
-			return ctx
-		},
-	}
+	srv := server.New(
+		logger,
+		server.WithAddr(cfg.Connector.Addr),
+		server.WithContext(ctx),
+		server.WithMonitoredComponents(mongoClient, natsClient),
+	)
 
 	return &Connector{
 		ctx:         ctx,
@@ -65,14 +66,12 @@ func New(cfg *config.Config) (*Connector, error) {
 		logger:      logger,
 		mongoClient: mongoClient,
 		natsClient:  natsClient,
-		server:      server,
+		server:      srv,
 	}, nil
 }
 
 func (c *Connector) Run() error {
-	defer closeClient(c.mongoClient)
-	defer closeClient(c.natsClient)
-	defer c.stop()
+	defer c.cleanup()
 
 	group, groupCtx := errgroup.WithContext(c.ctx)
 
@@ -118,14 +117,12 @@ func (c *Connector) Run() error {
 	}
 
 	group.Go(func() error {
-		c.logger.Info("connector started", "addr", c.server.Addr)
-		return c.server.ListenAndServe()
+		return c.server.Run()
 	})
 
 	group.Go(func() error {
 		<-groupCtx.Done()
-		c.logger.Info("connector gracefully shutting down", "addr", c.server.Addr)
-		return c.server.Shutdown(context.Background())
+		return c.server.Close()
 	})
 
 	return group.Wait()
@@ -144,6 +141,12 @@ func convertLogLevel(logLevel string) slog.Level {
 	default:
 		return slog.InfoLevel
 	}
+}
+
+func (c *Connector) cleanup() {
+	closeClient(c.mongoClient)
+	closeClient(c.natsClient)
+	c.stop()
 }
 
 func closeClient(closer io.Closer) {

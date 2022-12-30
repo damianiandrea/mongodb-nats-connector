@@ -10,6 +10,8 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+const mongoComponentName = "mongo"
+
 type Client struct {
 	uri string
 
@@ -36,6 +38,10 @@ func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
 
 	c.logger.Info("connected to mongodb", "uri", c.uri)
 	return c, nil
+}
+
+func (c *Client) Name() string {
+	return mongoComponentName
 }
 
 func (c *Client) Ping(ctx context.Context) error {
