@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -117,7 +116,7 @@ func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchColl
 			}
 			w.logger.Debug("received change stream", "changeStream", string(json))
 
-			subj := fmt.Sprintf("%s.%s", strings.ToUpper(watchedColl.Name()), event.OperationType)
+			subj := fmt.Sprintf("%s.%s", opts.StreamName, event.OperationType)
 			if err = opts.ChangeStreamHandler(subj, event.Id.Data, json); err != nil {
 				// nats error: current change stream was not published to nats.
 				// connector will retry from the previous token.
@@ -148,6 +147,7 @@ type WatchCollectionOptions struct {
 	WatchedCollName      string
 	ResumeTokensDbName   string
 	ResumeTokensCollName string
+	StreamName           string
 	ChangeStreamHandler  ChangeStreamHandler
 }
 
