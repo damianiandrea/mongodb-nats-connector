@@ -44,7 +44,7 @@ The connector leverages MongoDB's resume tokens by persisting them in a specific
 what was the last processed change event.
 
 There are a few possible scenarios:
-* The connector crashes before publishing the message to NATS and persisting the change event token.
+* The connector crashes before publishing the message to NATS and persisting the resume token.
 * The connector fails to publish the message to NATS.
 * The connector publishes the message to NATS, but fails to persist the resume token.
 
