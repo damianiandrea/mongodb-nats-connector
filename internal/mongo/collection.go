@@ -11,19 +11,23 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-type CollectionCreator struct {
+type CollectionCreator interface {
+	CreateCollection(ctx context.Context, opts *CreateCollectionOptions) error
+}
+
+type DefaultCollectionCreator struct {
 	wrapped *Client
 	logger  *slog.Logger
 }
 
-func NewCollectionCreator(client *Client, logger *slog.Logger) *CollectionCreator {
-	return &CollectionCreator{
+func NewDefaultCollectionCreator(client *Client, logger *slog.Logger) *DefaultCollectionCreator {
+	return &DefaultCollectionCreator{
 		wrapped: client,
 		logger:  logger,
 	}
 }
 
-func (c *CollectionCreator) CreateCollection(ctx context.Context, opts *CreateCollectionOptions) error {
+func (c *DefaultCollectionCreator) CreateCollection(ctx context.Context, opts *CreateCollectionOptions) error {
 	db := c.wrapped.client.Database(opts.DbName)
 	collNames, err := db.ListCollectionNames(ctx, bson.D{{Key: "name", Value: opts.CollName}})
 	if err != nil {
@@ -62,19 +66,23 @@ type CreateCollectionOptions struct {
 	ChangeStreamPreAndPostImages bool
 }
 
-type CollectionWatcher struct {
+type CollectionWatcher interface {
+	WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error
+}
+
+type DefaultCollectionWatcher struct {
 	wrapped *Client
 	logger  *slog.Logger
 }
 
-func NewCollectionWatcher(client *Client, logger *slog.Logger) *CollectionWatcher {
-	return &CollectionWatcher{
+func NewDefaultCollectionWatcher(client *Client, logger *slog.Logger) *DefaultCollectionWatcher {
+	return &DefaultCollectionWatcher{
 		wrapped: client,
 		logger:  logger,
 	}
 }
 
-func (w *CollectionWatcher) WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error {
+func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error {
 	for {
 		resumeTokensDb := w.wrapped.client.Database(opts.ResumeTokensDbName)
 		resumeTokensColl := resumeTokensDb.Collection(opts.ResumeTokensCollName)

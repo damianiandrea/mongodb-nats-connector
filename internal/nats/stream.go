@@ -7,19 +7,23 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-type StreamAdder struct {
+type StreamAdder interface {
+	AddStream(streamName string) error
+}
+
+type DefaultStreamAdder struct {
 	wrapped *Client
 	logger  *slog.Logger
 }
 
-func NewStreamAdder(client *Client, logger *slog.Logger) *StreamAdder {
-	return &StreamAdder{
+func NewDefaultStreamAdder(client *Client, logger *slog.Logger) *DefaultStreamAdder {
+	return &DefaultStreamAdder{
 		wrapped: client,
 		logger:  logger,
 	}
 }
 
-func (a *StreamAdder) AddStream(streamName string) error {
+func (a *DefaultStreamAdder) AddStream(streamName string) error {
 	_, err := a.wrapped.js.AddStream(&nats.StreamConfig{
 		Name:     streamName,
 		Subjects: []string{fmt.Sprintf("%s.*", streamName)},
@@ -32,19 +36,23 @@ func (a *StreamAdder) AddStream(streamName string) error {
 	return nil
 }
 
-type StreamPublisher struct {
+type StreamPublisher interface {
+	Publish(subj, msgId string, data []byte) error
+}
+
+type DefaultStreamPublisher struct {
 	wrapped *Client
 	logger  *slog.Logger
 }
 
-func NewStreamPublisher(client *Client, logger *slog.Logger) *StreamPublisher {
-	return &StreamPublisher{
+func NewDefaultStreamPublisher(client *Client, logger *slog.Logger) *DefaultStreamPublisher {
+	return &DefaultStreamPublisher{
 		wrapped: client,
 		logger:  logger,
 	}
 }
 
-func (p *StreamPublisher) Publish(subj, msgId string, data []byte) error {
+func (p *DefaultStreamPublisher) Publish(subj, msgId string, data []byte) error {
 	if _, err := p.wrapped.js.Publish(subj, data, nats.MsgId(msgId)); err != nil {
 		return fmt.Errorf("could not publish message %v to nats stream %v: %v", data, subj, err)
 	}
