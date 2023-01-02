@@ -10,6 +10,9 @@ tasks:
   stop:
     cmds:
       - docker-compose down -v --remove-orphans
+  unit-test:
+    cmds:
+      - go test -v -cover ./...
   integration-test:
     cmds:
       - cmd: docker-compose up --build --abort-on-container-exit
