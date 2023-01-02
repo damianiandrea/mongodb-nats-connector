@@ -19,3 +19,7 @@ tasks:
         ignore_error: true
       - docker-compose down -v --remove-orphans
       - docker image prune -f
+  test:
+    cmds:
+      - task: unit-test
+      - task: integration-test
