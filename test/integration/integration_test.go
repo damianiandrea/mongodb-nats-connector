@@ -20,6 +20,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+
+	"github.com/damianiandrea/go-mongo-nats-connector/test"
 )
 
 var (
@@ -144,7 +146,7 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
-	await(t, func() bool {
+	test.Await(t, 5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
 
@@ -184,7 +186,7 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
-	await(t, func() bool {
+	test.Await(t, 5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
 
@@ -223,7 +225,7 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
-	await(t, func() bool {
+	test.Await(t, 5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
 
@@ -235,22 +237,6 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, natsJs.PurgeStream("COLL1"))
 	})
-}
-
-func await(t *testing.T, fn func() bool) {
-	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-	for {
-		select {
-		case <-timeout.Done():
-			t.Error("timed out")
-			return
-		default:
-			if ok := fn(); ok {
-				return
-			}
-		}
-	}
 }
 
 func lastResumeTokenIsUpdated(tokensColl *mongo.Collection, event *changeEvent) bool {
