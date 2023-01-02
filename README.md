@@ -68,7 +68,7 @@ connector:
       tokensDbName: resume-tokens
       tokensCollName: tweets
       tokensCollCapped: true
-      tokensCollSize: 4096
+      tokensCollSizeInBytes: 4096
       streamName: TWEETS
 ```
 

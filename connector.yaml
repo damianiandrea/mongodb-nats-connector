@@ -8,7 +8,7 @@ connector:
       tokensDbName: "resume-tokens"
       tokensCollName: "coll1"
       tokensCollCapped: true
-      tokensCollSize: 4096
+      tokensCollSizeInBytes: 4096
       streamName: "COLL1"
     - dbName: "test-connector"
       collName: "coll2"
@@ -16,5 +16,5 @@ connector:
       tokensDbName: "resume-tokens"
       tokensCollName: "coll2"
       tokensCollCapped: true
-      tokensCollSize: 4096
+      tokensCollSizeInBytes: 4096
       streamName: "COLL2"

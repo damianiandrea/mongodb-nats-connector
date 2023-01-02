@@ -101,7 +101,7 @@ func (c *Connector) Run() error {
 			DbName:      coll.TokensDbName,
 			CollName:    coll.TokensCollName,
 			Capped:      *coll.TokensCollCapped,
-			SizeInBytes: *coll.TokensCollSize,
+			SizeInBytes: *coll.TokensCollSizeInBytes,
 		}
 		if err := c.collCreator.CreateCollection(groupCtx, createResumeTokensCollOpts); err != nil {
 			return err

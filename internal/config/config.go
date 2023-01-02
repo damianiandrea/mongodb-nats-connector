@@ -17,7 +17,7 @@ const (
 	defaultChangeStreamPreAndPostImages = false
 	defaultTokensDbName                 = "resume-tokens"
 	defaultTokensCollCapped             = true
-	defaultTokensCollSize               = 4096
+	defaultTokensCollSizeInBytes        = 4096
 )
 
 func Load(configFileName string) (*Config, error) {
@@ -25,7 +25,9 @@ func Load(configFileName string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read config file: %v", err)
 	}
-	defer configFile.Close()
+	defer func() {
+		_ = configFile.Close()
+	}()
 	config := &Config{}
 	if err = yaml.NewDecoder(configFile).Decode(config); err != nil {
 		return nil, fmt.Errorf("could not unmarshal config file: %v", err)
@@ -83,9 +85,9 @@ func validateAndSetDefaults(config *Config) error {
 			defVal := defaultTokensCollCapped
 			coll.TokensCollCapped = &defVal
 		}
-		if coll.TokensCollSize == nil {
-			var defVal int64 = defaultTokensCollSize
-			coll.TokensCollSize = &defVal
+		if coll.TokensCollSizeInBytes == nil {
+			var defVal int64 = defaultTokensCollSizeInBytes
+			coll.TokensCollSizeInBytes = &defVal
 		}
 		// if missing, use the uppercase of the coll name
 		if coll.StreamName == "" {
@@ -130,6 +132,6 @@ type Collection struct {
 	TokensDbName                 string `yaml:"tokensDbName,omitempty"`
 	TokensCollName               string `yaml:"tokensCollName,omitempty"`
 	TokensCollCapped             *bool  `yaml:"tokensCollCapped,omitempty"`
-	TokensCollSize               *int64 `yaml:"tokensCollSize,omitempty"`
+	TokensCollSizeInBytes        *int64 `yaml:"tokensCollSizeInBytes,omitempty"`
 	StreamName                   string `yaml:"streamName,omitempty"`
 }
