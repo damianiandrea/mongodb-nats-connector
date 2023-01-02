@@ -3,7 +3,6 @@ package connector
 import (
 	"context"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -153,13 +152,13 @@ func convertLogLevel(logLevel string) slog.Level {
 }
 
 func (c *Connector) cleanup() {
-	closeClient(c.mongoClient)
-	closeClient(c.natsClient)
+	c.closeClient(c.mongoClient)
+	c.closeClient(c.natsClient)
 	c.stop()
 }
 
-func closeClient(closer io.Closer) {
+func (c *Connector) closeClient(closer io.Closer) {
 	if err := closer.Close(); err != nil {
-		log.Printf("%v", err)
+		c.logger.Error("could not close client", err)
 	}
 }
