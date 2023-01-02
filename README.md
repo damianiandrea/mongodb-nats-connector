@@ -4,8 +4,8 @@
 
 A connector that uses MongoDB's change streams to capture data changes and publishes those changes to NATS JetStream.
 
-I wanted an easy way to do CDC (change data capture) with MongoDB and sink the data to NATS, but couldn't find any existing solution, so
-I decided to build my own.
+I wanted an easy way to do CDC (change data capture) with MongoDB and sink the data to NATS, but couldn't find any 
+existing solution, so I decided to build my own.
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ There are a few possible scenarios:
 * The connector fails to publish the message to NATS.
 * The connector publishes the message to NATS, but fails to persist the resume token.
 
-In all of the abovementioned cases the connector will resume from the previous change event token and try again.
+In all the aforementioned cases the connector will resume from the previous change event token and try again.
 While in the first two cases there will be no issues, in the third case, however, a duplicate message is to be expected.
 For this reason the connector uses the resume token as a NATS message id, so that NATS consumers can use it as a way
 to discard duplicates.
