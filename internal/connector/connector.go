@@ -118,7 +118,7 @@ func (c *Connector) Run() error {
 				ResumeTokensDbName:   coll.TokensDbName,
 				ResumeTokensCollName: coll.TokensCollName,
 				StreamName:           coll.StreamName,
-				ChangeStreamHandler:  c.streamPublisher.Publish,
+				ChangeEventHandler:   c.streamPublisher.Publish,
 			}
 			return c.collWatcher.WatchCollection(groupCtx, watchCollOpts) // blocking call
 		})

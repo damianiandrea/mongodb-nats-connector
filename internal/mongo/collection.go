@@ -115,27 +115,27 @@ func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *Wa
 		for cs.Next(ctx) {
 			event := &changeEvent{}
 			if err = cs.Decode(event); err != nil {
-				return fmt.Errorf("could not decode mongo change stream: %v", err)
+				return fmt.Errorf("could not decode mongo change stream event: %v", err)
 			}
 
 			json, err := bson.MarshalExtJSON(cs.Current, false, false)
 			if err != nil {
-				return fmt.Errorf("could not marshal mongo change stream from bson: %v", err)
+				return fmt.Errorf("could not marshal mongo change event from bson: %v", err)
 			}
-			w.logger.Debug("received change stream", "changeStream", string(json))
+			w.logger.Debug("received change event", "changeEvent", string(json))
 
 			subj := fmt.Sprintf("%s.%s", opts.StreamName, event.OperationType)
-			if err = opts.ChangeStreamHandler(subj, event.Id.Data, json); err != nil {
-				// nats error: current change stream was not published to nats.
+			if err = opts.ChangeEventHandler(subj, event.Id.Data, json); err != nil {
+				// current change event was not published.
 				// connector will retry from the previous token.
-				w.logger.Error("could not publish to nats stream", err)
+				w.logger.Error("could not publish change event", err)
 				break
 			}
 
 			if _, err = resumeTokensColl.InsertOne(ctx, event); err != nil {
-				// change event has been published to nats but token insertion failed.
+				// change event has been published but token insertion failed.
 				// connector will retry from the previous token, publishing a duplicate change event.
-				// the duplicate change event should be discarded by consumers because of the nats msg id.
+				// consumers should be able to detect and discard the duplicate change event by using the msg id.
 				w.logger.Error("could not insert resume token", err)
 				break
 			}
@@ -148,7 +148,7 @@ func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *Wa
 	}
 }
 
-type ChangeStreamHandler func(subj, msgId string, data []byte) error
+type ChangeEventHandler func(subj, msgId string, data []byte) error
 
 type WatchCollectionOptions struct {
 	WatchedDbName        string
@@ -156,7 +156,7 @@ type WatchCollectionOptions struct {
 	ResumeTokensDbName   string
 	ResumeTokensCollName string
 	StreamName           string
-	ChangeStreamHandler  ChangeStreamHandler
+	ChangeEventHandler   ChangeEventHandler
 }
 
 type changeEvent struct {
