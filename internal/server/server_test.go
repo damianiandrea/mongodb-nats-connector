@@ -40,11 +40,12 @@ func TestServer(t *testing.T) {
 	defer stop(srv)
 
 	var res *http.Response
-	test.Await(t, 5*time.Second, func() bool {
+	err := test.Await(5*time.Second, func() bool {
 		healthRes, err := healthcheck(srv)
 		res = healthRes
 		return err == nil
 	})
+	require.NoError(t, err)
 	gotBody := healthResponse{}
 	require.Equal(t, http.StatusOK, res.StatusCode)
 	require.Equal(t, "application/json", res.Header.Get("Content-Type"))

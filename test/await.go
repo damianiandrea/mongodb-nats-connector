@@ -2,21 +2,22 @@ package test
 
 import (
 	"context"
-	"testing"
+	"errors"
 	"time"
 )
 
-func Await(t *testing.T, time time.Duration, fn func() bool) {
+var ErrTimedOut = errors.New("timed out")
+
+func Await(time time.Duration, fn func() bool) error {
 	timeout, cancel := context.WithTimeout(context.Background(), time)
 	defer cancel()
 	for {
 		select {
 		case <-timeout.Done():
-			t.Error("timed out")
-			return
+			return ErrTimedOut
 		default:
 			if ok := fn(); ok {
-				return
+				return nil
 			}
 		}
 	}

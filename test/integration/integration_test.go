@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -25,10 +24,9 @@ import (
 )
 
 var (
-	mongoUri             = os.Getenv("MONGO_URI")
-	natsUrl              = os.Getenv("NATS_URL")
-	reconnectionAttempts = os.Getenv("RECONNECTION_ATTEMPTS")
-	connectorUrl         = os.Getenv("CONNECTOR_URL")
+	mongoUri     = os.Getenv("MONGO_URI")
+	natsUrl      = os.Getenv("NATS_URL")
+	connectorUrl = os.Getenv("CONNECTOR_URL")
 
 	mongoClient *mongo.Client
 
@@ -55,18 +53,12 @@ func TestMain(m *testing.M) {
 		log.Fatalf("could not create nats jetstream context: %v", err)
 	}
 
-	attemptsLeft, _ := strconv.ParseUint(reconnectionAttempts, 10, 64)
-	for attemptsLeft > 0 {
+	err = test.Await(5*time.Second, func() bool {
 		response, err := http.Get(fmt.Sprintf("%s/healthz", connectorUrl))
-		if err == nil && response.StatusCode == http.StatusOK {
-			break
-		}
-		attemptsLeft--
-		log.Printf("connector not ready, reconnection attempts left: %d\n", attemptsLeft)
-		time.Sleep(1 * time.Second)
-	}
-	if attemptsLeft == 0 {
-		log.Fatalf("attempts exhausted: could not reach connector")
+		return err == nil && response.StatusCode == http.StatusOK
+	})
+	if err != nil {
+		log.Fatalf("time exhausted: could not reach connector: %v", err)
 	}
 
 	code := m.Run()
@@ -146,9 +138,10 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
-	test.Await(t, 5*time.Second, func() bool {
+	err = test.Await(5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
@@ -186,9 +179,10 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
-	test.Await(t, 5*time.Second, func() bool {
+	err = test.Await(5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
@@ -225,9 +219,10 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
-	test.Await(t, 5*time.Second, func() bool {
+	err = test.Await(5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
