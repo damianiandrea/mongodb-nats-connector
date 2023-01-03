@@ -127,14 +127,19 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 
 	sub, err := natsJs.SubscribeSync("COLL1.insert", nats.DeliverLastPerSubject())
 	require.NoError(t, err)
-	msg, err := sub.NextMsg(1 * time.Minute)
-	require.NoError(t, err)
 
 	event := &changeEvent{}
-	require.NoError(t, json.Unmarshal(msg.Data, event))
-	require.NotEmpty(t, event.Id.Data)
-	require.Equal(t, event.OperationType, "insert")
-	require.Equal(t, event.FullDocument.Message, "hi")
+	err = test.Await(5*time.Second, func() bool {
+		msg, err := sub.NextMsg(5 * time.Second)
+		if err != nil {
+			return false
+		}
+		if err = json.Unmarshal(msg.Data, event); err != nil {
+			return false
+		}
+		return event.Id.Data != "" && event.OperationType == "insert" && event.FullDocument.Message == "hi"
+	})
+	require.NoError(t, err)
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
@@ -168,14 +173,19 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 
 	sub, err := natsJs.SubscribeSync("COLL1.update", nats.DeliverLastPerSubject())
 	require.NoError(t, err)
-	msg, err := sub.NextMsg(1 * time.Minute)
-	require.NoError(t, err)
 
 	event := &changeEvent{}
-	require.NoError(t, json.Unmarshal(msg.Data, event))
-	require.NotEmpty(t, event.Id.Data)
-	require.Equal(t, event.OperationType, "update")
-	require.Equal(t, event.FullDocument.Message, "bye")
+	err = test.Await(5*time.Second, func() bool {
+		msg, err := sub.NextMsg(5 * time.Second)
+		if err != nil {
+			return false
+		}
+		if err = json.Unmarshal(msg.Data, event); err != nil {
+			return false
+		}
+		return event.Id.Data != "" && event.OperationType == "update" && event.FullDocument.Message == "bye"
+	})
+	require.NoError(t, err)
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
@@ -208,14 +218,19 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 
 	sub, err := natsJs.SubscribeSync("COLL1.delete", nats.DeliverLastPerSubject())
 	require.NoError(t, err)
-	msg, err := sub.NextMsg(1 * time.Minute)
-	require.NoError(t, err)
 
 	event := &changeEvent{}
-	require.NoError(t, json.Unmarshal(msg.Data, event))
-	require.NotEmpty(t, event.Id.Data)
-	require.Equal(t, event.OperationType, "delete")
-	require.Equal(t, event.FullDocumentBeforeChange.Message, "hi")
+	err = test.Await(5*time.Second, func() bool {
+		msg, err := sub.NextMsg(5 * time.Second)
+		if err != nil {
+			return false
+		}
+		if err = json.Unmarshal(msg.Data, event); err != nil {
+			return false
+		}
+		return event.Id.Data != "" && event.OperationType == "delete" && event.FullDocumentBeforeChange.Message == "hi"
+	})
+	require.NoError(t, err)
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection("coll1")
