@@ -88,9 +88,9 @@ func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *Wa
 		resumeTokensColl := resumeTokensDb.Collection(opts.ResumeTokensCollName)
 
 		findOneOpts := options.FindOne().SetSort(bson.D{{Key: "$natural", Value: -1}})
-		resumeToken := resumeTokensColl.FindOne(ctx, bson.D{}, findOneOpts)
-		previousChangeEvent := &changeEvent{}
-		if err := resumeToken.Decode(previousChangeEvent); err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+		lastResumeToken := &resumeToken{}
+		err := resumeTokensColl.FindOne(ctx, bson.D{}, findOneOpts).Decode(lastResumeToken)
+		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 			return fmt.Errorf("could not fetch or decode resume token: %v", err)
 		}
 
@@ -98,9 +98,9 @@ func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *Wa
 			SetFullDocument(options.UpdateLookup).
 			SetFullDocumentBeforeChange(options.WhenAvailable)
 
-		if previousChangeEvent.Id.Data != "" {
-			w.logger.Debug("resuming after token", "token", previousChangeEvent.Id.Data)
-			changeStreamOpts.SetResumeAfter(bson.D{{Key: "_data", Value: previousChangeEvent.Id.Data}})
+		if lastResumeToken.Value != "" {
+			w.logger.Debug("resuming after token", "token", lastResumeToken.Value)
+			changeStreamOpts.SetResumeAfter(bson.D{{Key: "_data", Value: lastResumeToken.Value}})
 		}
 
 		watchedDb := w.wrapped.client.Database(opts.WatchedDbName)
@@ -113,10 +113,8 @@ func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *Wa
 		w.logger.Info("watching mongodb collection", "collName", watchedColl.Name())
 
 		for cs.Next(ctx) {
-			event := &changeEvent{}
-			if err = cs.Decode(event); err != nil {
-				return fmt.Errorf("could not decode mongo change stream event: %v", err)
-			}
+			currentResumeToken := cs.Current.Lookup("_id", "_data").StringValue()
+			operationType := cs.Current.Lookup("operationType").StringValue()
 
 			json, err := bson.MarshalExtJSON(cs.Current, false, false)
 			if err != nil {
@@ -124,15 +122,15 @@ func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *Wa
 			}
 			w.logger.Debug("received change event", "changeEvent", string(json))
 
-			subj := fmt.Sprintf("%s.%s", opts.StreamName, event.OperationType)
-			if err = opts.ChangeEventHandler(subj, event.Id.Data, json); err != nil {
+			subj := fmt.Sprintf("%s.%s", opts.StreamName, operationType)
+			if err = opts.ChangeEventHandler(subj, currentResumeToken, json); err != nil {
 				// current change event was not published.
 				// connector will retry from the previous token.
 				w.logger.Error("could not publish change event", err)
 				break
 			}
 
-			if _, err = resumeTokensColl.InsertOne(ctx, event); err != nil {
+			if _, err = resumeTokensColl.InsertOne(ctx, &resumeToken{Value: currentResumeToken}); err != nil {
 				// change event has been published but token insertion failed.
 				// connector will retry from the previous token, publishing a duplicate change event.
 				// consumers should be able to detect and discard the duplicate change event by using the msg id.
@@ -159,11 +157,6 @@ type WatchCollectionOptions struct {
 	ChangeEventHandler   ChangeEventHandler
 }
 
-type changeEvent struct {
-	Id            changeEventId `bson:"_id"`
-	OperationType string        `bson:"operationType"`
-}
-
-type changeEventId struct {
-	Data string `bson:"_data"`
+type resumeToken struct {
+	Value string `bson:"value"`
 }

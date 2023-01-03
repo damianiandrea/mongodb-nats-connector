@@ -236,11 +236,11 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 
 func lastResumeTokenIsUpdated(tokensColl *mongo.Collection, event *changeEvent) bool {
 	opt := options.FindOne().SetSort(bson.D{{Key: "$natural", Value: -1}})
-	lastToken := &changeEvent{}
-	if err := tokensColl.FindOne(context.Background(), bson.D{}, opt).Decode(lastToken); err != nil {
+	lastResumeToken := &resumeToken{}
+	if err := tokensColl.FindOne(context.Background(), bson.D{}, opt).Decode(lastResumeToken); err != nil {
 		return false
 	}
-	return strings.Compare(event.Id.Data, lastToken.Id.Data) == 0
+	return strings.Compare(event.Id.Data, lastResumeToken.Value) == 0
 }
 
 type healthResponse struct {
@@ -284,4 +284,8 @@ type changeEventId struct {
 
 type fullDocument struct {
 	Message string `json:"message"`
+}
+
+type resumeToken struct {
+	Value string `bson:"value"`
 }
