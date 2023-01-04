@@ -65,6 +65,27 @@ func (c *Client) Ping(_ context.Context) error {
 	return nil
 }
 
+func (c *Client) AddStream(streamName string) error {
+	_, err := c.js.AddStream(&nats.StreamConfig{
+		Name:     streamName,
+		Subjects: []string{fmt.Sprintf("%s.*", streamName)},
+		Storage:  nats.FileStorage,
+	})
+	if err != nil {
+		return fmt.Errorf("could not add nats stream %v: %v", streamName, err)
+	}
+	c.logger.Debug("added nats stream", "streamName", streamName)
+	return nil
+}
+
+func (c *Client) Publish(subj, msgId string, data []byte) error {
+	if _, err := c.js.Publish(subj, data, nats.MsgId(msgId)); err != nil {
+		return fmt.Errorf("could not publish message %v to nats stream %v: %v", data, subj, err)
+	}
+	c.logger.Debug("published message", "subj", subj, "data", string(data))
+	return nil
+}
+
 func (c *Client) Close() error {
 	c.conn.Close()
 	return nil

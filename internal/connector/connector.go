@@ -21,15 +21,11 @@ type Connector struct {
 	ctx  context.Context
 	stop context.CancelFunc
 
-	cfg             *config.Config
-	logger          *slog.Logger
-	mongoClient     *mongo.Client
-	collCreator     mongo.CollectionCreator
-	collWatcher     mongo.CollectionWatcher
-	natsClient      *nats.Client
-	streamAdder     nats.StreamAdder
-	streamPublisher nats.StreamPublisher
-	server          *server.Server
+	cfg         *config.Config
+	logger      *slog.Logger
+	mongoClient *mongo.Client
+	natsClient  *nats.Client
+	server      *server.Server
 }
 
 func New(cfg *config.Config) (*Connector, error) {
@@ -44,8 +40,6 @@ func New(cfg *config.Config) (*Connector, error) {
 	if err != nil {
 		return nil, err
 	}
-	collCreator := mongo.NewDefaultCollectionCreator(mongoClient, logger)
-	collWatcher := mongo.NewDefaultCollectionWatcher(mongoClient, logger)
 
 	natsClient, err := nats.NewClient(
 		nats.WithNatsUrl(cfg.Connector.Nats.Url),
@@ -54,8 +48,6 @@ func New(cfg *config.Config) (*Connector, error) {
 	if err != nil {
 		return nil, err
 	}
-	streamAdder := nats.NewDefaultStreamAdder(natsClient, logger)
-	streamPublisher := nats.NewDefaultStreamPublisher(natsClient, logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
@@ -67,17 +59,13 @@ func New(cfg *config.Config) (*Connector, error) {
 	)
 
 	return &Connector{
-		ctx:             ctx,
-		stop:            stop,
-		cfg:             cfg,
-		logger:          logger,
-		mongoClient:     mongoClient,
-		collCreator:     collCreator,
-		collWatcher:     collWatcher,
-		natsClient:      natsClient,
-		streamAdder:     streamAdder,
-		streamPublisher: streamPublisher,
-		server:          srv,
+		ctx:         ctx,
+		stop:        stop,
+		cfg:         cfg,
+		logger:      logger,
+		mongoClient: mongoClient,
+		natsClient:  natsClient,
+		server:      srv,
 	}, nil
 }
 
@@ -93,7 +81,7 @@ func (c *Connector) Run() error {
 			CollName:                     coll.CollName,
 			ChangeStreamPreAndPostImages: *coll.ChangeStreamPreAndPostImages,
 		}
-		if err := c.collCreator.CreateCollection(groupCtx, createWatchedCollOpts); err != nil {
+		if err := c.mongoClient.CreateCollection(groupCtx, createWatchedCollOpts); err != nil {
 			return err
 		}
 
@@ -103,11 +91,11 @@ func (c *Connector) Run() error {
 			Capped:      *coll.TokensCollCapped,
 			SizeInBytes: *coll.TokensCollSizeInBytes,
 		}
-		if err := c.collCreator.CreateCollection(groupCtx, createResumeTokensCollOpts); err != nil {
+		if err := c.mongoClient.CreateCollection(groupCtx, createResumeTokensCollOpts); err != nil {
 			return err
 		}
 
-		if err := c.streamAdder.AddStream(coll.StreamName); err != nil {
+		if err := c.natsClient.AddStream(coll.StreamName); err != nil {
 			return err
 		}
 
@@ -119,9 +107,9 @@ func (c *Connector) Run() error {
 				ResumeTokensCollName:   coll.TokensCollName,
 				ResumeTokensCollCapped: *coll.TokensCollCapped,
 				StreamName:             coll.StreamName,
-				ChangeEventHandler:     c.streamPublisher.Publish,
+				ChangeEventHandler:     c.natsClient.Publish,
 			}
-			return c.collWatcher.WatchCollection(groupCtx, watchCollOpts) // blocking call
+			return c.mongoClient.WatchCollection(groupCtx, watchCollOpts) // blocking call
 		})
 	}
 
