@@ -65,7 +65,7 @@ func (c *Client) Ping(_ context.Context) error {
 	return nil
 }
 
-func (c *Client) AddStream(streamName string) error {
+func (c *Client) AddStream(_ context.Context, streamName string) error {
 	_, err := c.js.AddStream(&nats.StreamConfig{
 		Name:     streamName,
 		Subjects: []string{fmt.Sprintf("%s.*", streamName)},
@@ -78,7 +78,7 @@ func (c *Client) AddStream(streamName string) error {
 	return nil
 }
 
-func (c *Client) Publish(subj, msgId string, data []byte) error {
+func (c *Client) Publish(_ context.Context, subj, msgId string, data []byte) error {
 	if _, err := c.js.Publish(subj, data, nats.MsgId(msgId)); err != nil {
 		return fmt.Errorf("could not publish message %v to nats stream %v: %v", data, subj, err)
 	}

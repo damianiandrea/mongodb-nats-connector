@@ -95,7 +95,7 @@ func (c *Connector) Run() error {
 			return err
 		}
 
-		if err := c.natsClient.AddStream(coll.StreamName); err != nil {
+		if err := c.natsClient.AddStream(groupCtx, coll.StreamName); err != nil {
 			return err
 		}
 

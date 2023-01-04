@@ -148,7 +148,7 @@ func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptio
 			c.logger.Debug("received change event", "changeEvent", string(json))
 
 			subj := fmt.Sprintf("%s.%s", opts.StreamName, operationType)
-			if err = opts.ChangeEventHandler(subj, currentResumeToken, json); err != nil {
+			if err = opts.ChangeEventHandler(ctx, subj, currentResumeToken, json); err != nil {
 				// current change event was not published.
 				// connector will retry from the previous token.
 				c.logger.Error("could not publish change event", err)
@@ -171,7 +171,7 @@ func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptio
 	}
 }
 
-type ChangeEventHandler func(subj, msgId string, data []byte) error
+type ChangeEventHandler func(ctx context.Context, subj, msgId string, data []byte) error
 
 type WatchCollectionOptions struct {
 	WatchedDbName          string
