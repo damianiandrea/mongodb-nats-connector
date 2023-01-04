@@ -9,18 +9,26 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const natsComponentName = "nats"
+const (
+	defaultUrl  = "nats://127.0.0.1:4222"
+	defaultName = "nats"
+)
 
 type Client struct {
-	url string
-
-	conn   *nats.Conn
-	js     nats.JetStreamContext
+	url    string
+	name   string
 	logger *slog.Logger
+
+	conn *nats.Conn
+	js   nats.JetStreamContext
 }
 
-func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
-	c := &Client{logger: logger}
+func NewClient(opts ...ClientOption) (*Client, error) {
+	c := &Client{
+		url:    defaultUrl,
+		name:   defaultName,
+		logger: slog.Default(),
+	}
 
 	for _, opt := range opts {
 		opt(c)
@@ -47,7 +55,7 @@ func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
 }
 
 func (c *Client) Name() string {
-	return natsComponentName
+	return c.name
 }
 
 func (c *Client) Ping(_ context.Context) error {
@@ -66,6 +74,16 @@ type ClientOption func(*Client)
 
 func WithNatsUrl(url string) ClientOption {
 	return func(c *Client) {
-		c.url = url
+		if url != "" {
+			c.url = url
+		}
+	}
+}
+
+func WithLogger(logger *slog.Logger) ClientOption {
+	return func(c *Client) {
+		if logger != nil {
+			c.logger = logger
+		}
 	}
 }

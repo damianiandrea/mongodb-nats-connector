@@ -10,10 +10,6 @@ import (
 )
 
 const (
-	defaultAddr     = "127.0.0.1:8080"
-	defaultMongoUri = "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=go-mongo-nats-connector"
-	defaultNatsUrl  = "nats://127.0.0.1:4222"
-
 	defaultChangeStreamPreAndPostImages = false
 	defaultTokensDbName                 = "resume-tokens"
 	defaultTokensCollCapped             = true
@@ -40,27 +36,15 @@ func Load(configFileName string) (*Config, error) {
 
 func validateAndSetDefaults(config *Config) error {
 	if config.Connector.Addr == "" {
-		if addr, found := os.LookupEnv("SERVER_ADDR"); found {
-			config.Connector.Addr = addr
-		} else {
-			config.Connector.Addr = defaultAddr
-		}
+		config.Connector.Addr = os.Getenv("SERVER_ADDR")
 	}
 
 	if config.Connector.Mongo.Uri == "" {
-		if mongoUri, found := os.LookupEnv("MONGO_URI"); found {
-			config.Connector.Mongo.Uri = mongoUri
-		} else {
-			config.Connector.Mongo.Uri = defaultMongoUri
-		}
+		config.Connector.Mongo.Uri = os.Getenv("MONGO_URI")
 	}
 
 	if config.Connector.Nats.Url == "" {
-		if natsUrl, found := os.LookupEnv("NATS_URL"); found {
-			config.Connector.Nats.Url = natsUrl
-		} else {
-			config.Connector.Nats.Url = defaultNatsUrl
-		}
+		config.Connector.Nats.Url = os.Getenv("NATS_URL")
 	}
 
 	for _, coll := range config.Connector.Collections {

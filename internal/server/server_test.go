@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -15,24 +16,45 @@ import (
 	"github.com/damianiandrea/go-mongo-nats-connector/test"
 )
 
-func TestServer(t *testing.T) {
-	t.Run("should create and run server and successfully call its health endpoint", func(t *testing.T) {
-		addr := "127.0.0.1:8080"
-		ctx := context.Background()
+func TestNew(t *testing.T) {
+	t.Run("should create server with defaults", func(t *testing.T) {
+		srv := New()
+
+		require.Equal(t, "127.0.0.1:8080", srv.addr)
+		require.Equal(t, context.Background(), srv.ctx)
+		require.Empty(t, srv.components)
+		require.Equal(t, slog.Default(), srv.logger)
+	})
+	t.Run("should create server with the configured options", func(t *testing.T) {
+		addr := "127.0.0.1:8085"
+		ctx := context.TODO()
 		cmpUp := &testComponent{name: "cmp_up", err: nil}
 		cmpDown := &testComponent{name: "cmp_down", err: errors.New("not pingable")}
+		logger := slog.New(slog.NewJSONHandler(os.Stdout))
 
 		srv := New(
-			slog.Default(),
 			WithAddr(addr),
 			WithContext(ctx),
 			WithMonitoredComponents(cmpUp, cmpDown),
+			WithLogger(logger),
 		)
 
 		require.Equal(t, addr, srv.addr)
 		require.Equal(t, ctx, srv.ctx)
 		require.Contains(t, srv.components, cmpUp)
 		require.Contains(t, srv.components, cmpDown)
+		require.Equal(t, logger, srv.logger)
+	})
+}
+
+func TestServer_Run(t *testing.T) {
+	t.Run("should create and run server and successfully call its health endpoint", func(t *testing.T) {
+		cmpUp := &testComponent{name: "cmp_up", err: nil}
+		cmpDown := &testComponent{name: "cmp_down", err: errors.New("not pingable")}
+
+		srv := New(
+			WithMonitoredComponents(cmpUp, cmpDown),
+		)
 
 		// start server
 		go start(srv)

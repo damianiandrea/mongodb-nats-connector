@@ -8,17 +8,24 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+const defaultAddr = "127.0.0.1:8080"
+
 type Server struct {
 	addr       string
 	ctx        context.Context
 	components []MonitoredComponent
+	logger     *slog.Logger
 
-	http   *http.Server
-	logger *slog.Logger
+	http *http.Server
 }
 
-func New(logger *slog.Logger, opts ...Option) *Server {
-	server := &Server{logger: logger}
+func New(opts ...Option) *Server {
+	server := &Server{
+		addr:       defaultAddr,
+		ctx:        context.Background(),
+		components: []MonitoredComponent{},
+		logger:     slog.Default(),
+	}
 
 	for _, opt := range opts {
 		opt(server)
@@ -51,18 +58,32 @@ type Option func(*Server)
 
 func WithAddr(addr string) Option {
 	return func(s *Server) {
-		s.addr = addr
+		if addr != "" {
+			s.addr = addr
+		}
 	}
 }
 
 func WithContext(ctx context.Context) Option {
 	return func(s *Server) {
-		s.ctx = ctx
+		if ctx != nil {
+			s.ctx = ctx
+		}
 	}
 }
 
 func WithMonitoredComponents(components ...MonitoredComponent) Option {
 	return func(s *Server) {
-		s.components = components
+		if components != nil {
+			s.components = components
+		}
+	}
+}
+
+func WithLogger(logger *slog.Logger) Option {
+	return func(s *Server) {
+		if logger != nil {
+			s.logger = logger
+		}
 	}
 }

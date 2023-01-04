@@ -38,8 +38,8 @@ func New(cfg *config.Config) (*Connector, error) {
 	logger := slog.New(loggerOpts.NewJSONHandler(os.Stdout))
 
 	mongoClient, err := mongo.NewClient(
-		logger,
 		mongo.WithMongoUri(cfg.Connector.Mongo.Uri),
+		mongo.WithLogger(logger),
 	)
 	if err != nil {
 		return nil, err
@@ -48,8 +48,8 @@ func New(cfg *config.Config) (*Connector, error) {
 	collWatcher := mongo.NewDefaultCollectionWatcher(mongoClient, logger)
 
 	natsClient, err := nats.NewClient(
-		logger,
 		nats.WithNatsUrl(cfg.Connector.Nats.Url),
+		nats.WithLogger(logger),
 	)
 	if err != nil {
 		return nil, err
@@ -60,10 +60,10 @@ func New(cfg *config.Config) (*Connector, error) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	srv := server.New(
-		logger,
 		server.WithAddr(cfg.Connector.Addr),
 		server.WithContext(ctx),
 		server.WithMonitoredComponents(mongoClient, natsClient),
+		server.WithLogger(logger),
 	)
 
 	return &Connector{

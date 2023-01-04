@@ -10,17 +10,25 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const mongoComponentName = "mongo"
+const (
+	defaultUri  = "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=go-mongo-nats-connector"
+	defaultName = "mongo"
+)
 
 type Client struct {
-	uri string
+	uri    string
+	name   string
+	logger *slog.Logger
 
 	client *mongo.Client
-	logger *slog.Logger
 }
 
-func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
-	c := &Client{logger: logger}
+func NewClient(opts ...ClientOption) (*Client, error) {
+	c := &Client{
+		uri:    defaultUri,
+		name:   defaultName,
+		logger: slog.Default(),
+	}
 
 	for _, opt := range opts {
 		opt(c)
@@ -41,7 +49,7 @@ func NewClient(logger *slog.Logger, opts ...ClientOption) (*Client, error) {
 }
 
 func (c *Client) Name() string {
-	return mongoComponentName
+	return c.name
 }
 
 func (c *Client) Ping(ctx context.Context) error {
@@ -62,6 +70,16 @@ type ClientOption func(*Client)
 
 func WithMongoUri(uri string) ClientOption {
 	return func(c *Client) {
-		c.uri = uri
+		if uri != "" {
+			c.uri = uri
+		}
+	}
+}
+
+func WithLogger(logger *slog.Logger) ClientOption {
+	return func(c *Client) {
+		if logger != nil {
+			c.logger = logger
+		}
 	}
 }
