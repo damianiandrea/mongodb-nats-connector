@@ -87,7 +87,14 @@ func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *Wa
 		resumeTokensDb := w.wrapped.client.Database(opts.ResumeTokensDbName)
 		resumeTokensColl := resumeTokensDb.Collection(opts.ResumeTokensCollName)
 
-		findOneOpts := options.FindOne().SetSort(bson.D{{Key: "$natural", Value: -1}})
+		findOneOpts := options.FindOne()
+		if opts.ResumeTokensCollCapped {
+			// use natural sort for capped collections to get the last inserted resume token
+			findOneOpts.SetSort(bson.D{{Key: "$natural", Value: -1}})
+		} else {
+			// cannot rely on natural sort for uncapped collections, sort by id instead
+			findOneOpts.SetSort(bson.D{{Key: "_id", Value: -1}})
+		}
 		lastResumeToken := &resumeToken{}
 		err := resumeTokensColl.FindOne(ctx, bson.D{}, findOneOpts).Decode(lastResumeToken)
 		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
@@ -149,12 +156,13 @@ func (w *DefaultCollectionWatcher) WatchCollection(ctx context.Context, opts *Wa
 type ChangeEventHandler func(subj, msgId string, data []byte) error
 
 type WatchCollectionOptions struct {
-	WatchedDbName        string
-	WatchedCollName      string
-	ResumeTokensDbName   string
-	ResumeTokensCollName string
-	StreamName           string
-	ChangeEventHandler   ChangeEventHandler
+	WatchedDbName          string
+	WatchedCollName        string
+	ResumeTokensDbName     string
+	ResumeTokensCollName   string
+	ResumeTokensCollCapped bool
+	StreamName             string
+	ChangeEventHandler     ChangeEventHandler
 }
 
 type resumeToken struct {

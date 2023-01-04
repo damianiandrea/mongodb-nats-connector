@@ -113,12 +113,13 @@ func (c *Connector) Run() error {
 
 		group.Go(func() error {
 			watchCollOpts := &mongo.WatchCollectionOptions{
-				WatchedDbName:        coll.DbName,
-				WatchedCollName:      coll.CollName,
-				ResumeTokensDbName:   coll.TokensDbName,
-				ResumeTokensCollName: coll.TokensCollName,
-				StreamName:           coll.StreamName,
-				ChangeEventHandler:   c.streamPublisher.Publish,
+				WatchedDbName:          coll.DbName,
+				WatchedCollName:        coll.CollName,
+				ResumeTokensDbName:     coll.TokensDbName,
+				ResumeTokensCollName:   coll.TokensCollName,
+				ResumeTokensCollCapped: *coll.TokensCollCapped,
+				StreamName:             coll.StreamName,
+				ChangeEventHandler:     c.streamPublisher.Publish,
 			}
 			return c.collWatcher.WatchCollection(groupCtx, watchCollOpts) // blocking call
 		})

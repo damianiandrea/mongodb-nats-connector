@@ -15,6 +15,5 @@ connector:
       changeStreamPreAndPostImages: true
       tokensDbName: "resume-tokens"
       tokensCollName: "coll2"
-      tokensCollCapped: true
-      tokensCollSizeInBytes: 4096
+      tokensCollCapped: false
       streamName: "COLL2"

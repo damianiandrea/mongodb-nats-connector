@@ -91,7 +91,7 @@ func TestWatchedCollectionsWereCreated(t *testing.T) {
 	require.Contains(t, colls, "coll2")
 }
 
-func TestResumeTokenCollectionsWereCreatedAndAreCapped(t *testing.T) {
+func TestResumeTokenCollectionsWereCreated(t *testing.T) {
 	db := mongoClient.Database("resume-tokens")
 	colls, err := db.ListCollections(context.Background(), bson.D{})
 	actualColls := make([]mongoColl, 0)
@@ -99,7 +99,7 @@ func TestResumeTokenCollectionsWereCreatedAndAreCapped(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, colls.All(context.Background(), &actualColls))
 	require.Contains(t, actualColls, mongoColl{Name: "coll1", Options: mongoCollOptions{Capped: true, Size: 4096}})
-	require.Contains(t, actualColls, mongoColl{Name: "coll2", Options: mongoCollOptions{Capped: true, Size: 4096}})
+	require.Contains(t, actualColls, mongoColl{Name: "coll2", Options: mongoCollOptions{Capped: false, Size: 0}})
 }
 
 func TestStreamsWereCreatedAndUseFileStorage(t *testing.T) {
@@ -118,14 +118,24 @@ func TestStreamsWereCreatedAndUseFileStorage(t *testing.T) {
 }
 
 func TestMongoInsertIsPublishedToNats(t *testing.T) {
-	db := mongoClient.Database("test-connector")
-	coll1 := db.Collection("coll1")
+	testMongoInsertIsPublishedToNats(t, "coll1")
+}
 
-	result, err := coll1.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
+func TestMongoInsertIsPublishedToNatsUsingCappedResumeTokenColl(t *testing.T) {
+	testMongoInsertIsPublishedToNats(t, "coll2")
+}
+
+func testMongoInsertIsPublishedToNats(t *testing.T, testColl string) {
+	db := mongoClient.Database("test-connector")
+	coll := db.Collection(testColl)
+
+	result, err := coll.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
 	require.NoError(t, err)
 	require.NotNil(t, result.InsertedID)
 
-	sub, err := natsJs.SubscribeSync("COLL1.insert", nats.DeliverLastPerSubject())
+	testStream := strings.ToUpper(testColl)
+	subj := fmt.Sprintf("%s.insert", testStream)
+	sub, err := natsJs.SubscribeSync(subj, nats.DeliverLastPerSubject())
 	require.NoError(t, err)
 
 	event := &changeEvent{}
@@ -142,7 +152,7 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 	require.NoError(t, err)
 
 	tokensDb := mongoClient.Database("resume-tokens")
-	tokensColl1 := tokensDb.Collection("coll1")
+	tokensColl1 := tokensDb.Collection(testColl)
 	err = test.Await(5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
@@ -150,17 +160,25 @@ func TestMongoInsertIsPublishedToNats(t *testing.T) {
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
-		_, err := coll1.DeleteMany(context.Background(), bson.D{})
+		_, err := coll.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
 		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
-		require.NoError(t, natsJs.PurgeStream("COLL1"))
+		require.NoError(t, natsJs.PurgeStream(testStream))
 	})
 }
 
 func TestMongoUpdateIsPublishedToNats(t *testing.T) {
+	testMongoUpdateIsPublishedToNats(t, "coll1")
+}
+
+func TestMongoUpdateIsPublishedToNatsUsingCappedResumeTokenColl(t *testing.T) {
+	testMongoUpdateIsPublishedToNats(t, "coll2")
+}
+
+func testMongoUpdateIsPublishedToNats(t *testing.T, testColl string) {
 	db := mongoClient.Database("test-connector")
-	coll1 := db.Collection("coll1")
+	coll1 := db.Collection(testColl)
 
 	result, err := coll1.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
 	require.NoError(t, err)
@@ -171,7 +189,9 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 	_, err = coll1.UpdateOne(context.Background(), filter, update)
 	require.NoError(t, err)
 
-	sub, err := natsJs.SubscribeSync("COLL1.update", nats.DeliverLastPerSubject())
+	testStream := strings.ToUpper(testColl)
+	subj := fmt.Sprintf("%s.update", testStream)
+	sub, err := natsJs.SubscribeSync(subj, nats.DeliverLastPerSubject())
 	require.NoError(t, err)
 
 	event := &changeEvent{}
@@ -188,7 +208,7 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 	require.NoError(t, err)
 
 	tokensDb := mongoClient.Database("resume-tokens")
-	tokensColl1 := tokensDb.Collection("coll1")
+	tokensColl1 := tokensDb.Collection(testColl)
 	err = test.Await(5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
@@ -200,13 +220,21 @@ func TestMongoUpdateIsPublishedToNats(t *testing.T) {
 		require.NoError(t, err)
 		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
-		require.NoError(t, natsJs.PurgeStream("COLL1"))
+		require.NoError(t, natsJs.PurgeStream(testStream))
 	})
 }
 
 func TestMongoDeleteIsPublishedToNats(t *testing.T) {
+	testMongoDeleteIsPublishedToNats(t, "coll1")
+}
+
+func TestMongoDeleteIsPublishedToNatsUsingCappedResumeTokenColl(t *testing.T) {
+	testMongoDeleteIsPublishedToNats(t, "coll2")
+}
+
+func testMongoDeleteIsPublishedToNats(t *testing.T, testColl string) {
 	db := mongoClient.Database("test-connector")
-	coll1 := db.Collection("coll1")
+	coll1 := db.Collection(testColl)
 
 	result, err := coll1.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
 	require.NoError(t, err)
@@ -216,7 +244,9 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 	_, err = coll1.DeleteOne(context.Background(), filter)
 	require.NoError(t, err)
 
-	sub, err := natsJs.SubscribeSync("COLL1.delete", nats.DeliverLastPerSubject())
+	testStream := strings.ToUpper(testColl)
+	subj := fmt.Sprintf("%s.delete", testStream)
+	sub, err := natsJs.SubscribeSync(subj, nats.DeliverLastPerSubject())
 	require.NoError(t, err)
 
 	event := &changeEvent{}
@@ -233,7 +263,7 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 	require.NoError(t, err)
 
 	tokensDb := mongoClient.Database("resume-tokens")
-	tokensColl1 := tokensDb.Collection("coll1")
+	tokensColl1 := tokensDb.Collection(testColl)
 	err = test.Await(5*time.Second, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
 	})
@@ -245,7 +275,7 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 		require.NoError(t, err)
 		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
-		require.NoError(t, natsJs.PurgeStream("COLL1"))
+		require.NoError(t, natsJs.PurgeStream(testStream))
 	})
 }
 
