@@ -166,7 +166,7 @@ func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptio
 
 		c.logger.Info("stopped watching mongodb collection", "collName", watchedColl.Name())
 		if err = cs.Close(context.Background()); err != nil {
-			return err
+			return fmt.Errorf("could not close change stream: %v", err)
 		}
 	}
 }
