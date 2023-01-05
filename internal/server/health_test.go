@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHealthHandler_ServeHTTP(t *testing.T) {
+func Test_healthCheck(t *testing.T) {
 	type fields struct {
-		components []MonitoredComponent
+		monitors []NamedMonitor
 	}
 	type args struct {
 		w http.ResponseWriter
@@ -28,8 +28,8 @@ func TestHealthHandler_ServeHTTP(t *testing.T) {
 		wantBody        healthResponse
 	}{
 		{
-			name:   "should write a json response with component status up, if it was pingable",
-			fields: fields{components: []MonitoredComponent{&testComponent{name: "test", err: nil}}},
+			name:   "should write a json response with component status up, if it was reachable",
+			fields: fields{monitors: []NamedMonitor{&testComponent{name: "test", err: nil}}},
 			args: args{
 				w: httptest.NewRecorder(),
 				r: httptest.NewRequest(http.MethodGet, "/healthz", nil),
@@ -44,9 +44,9 @@ func TestHealthHandler_ServeHTTP(t *testing.T) {
 			},
 		},
 		{
-			name: "should write a json response with component status down, if it was not pingable",
-			fields: fields{components: []MonitoredComponent{&testComponent{name: "test",
-				err: errors.New("not pingable")}}},
+			name: "should write a json response with component status down, if it was not reachable",
+			fields: fields{monitors: []NamedMonitor{&testComponent{name: "test",
+				err: errors.New("not reachable")}}},
 			args: args{
 				w: httptest.NewRecorder(),
 				r: httptest.NewRequest(http.MethodGet, "/healthz", nil),
@@ -63,8 +63,8 @@ func TestHealthHandler_ServeHTTP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &HealthHandler{components: tt.fields.components}
-			h.ServeHTTP(tt.args.w, tt.args.r)
+			healthCheck := healthCheck(tt.fields.monitors...)
+			healthCheck(tt.args.w, tt.args.r)
 			rec := tt.args.w.(*httptest.ResponseRecorder)
 			require.Equal(t, tt.wantCode, rec.Code)
 			require.Equal(t, tt.wantContentType, rec.Header().Get("Content-Type"))
@@ -84,6 +84,6 @@ func (t *testComponent) Name() string {
 	return t.name
 }
 
-func (t *testComponent) Ping(_ context.Context) error {
+func (t *testComponent) Monitor(_ context.Context) error {
 	return t.err
 }

@@ -54,7 +54,7 @@ func New(cfg *config.Config) (*Connector, error) {
 	srv := server.New(
 		server.WithAddr(cfg.Connector.Addr),
 		server.WithContext(ctx),
-		server.WithMonitoredComponents(mongoClient, natsClient),
+		server.WithNamedMonitors(mongoClient, natsClient),
 		server.WithLogger(logger),
 	)
 

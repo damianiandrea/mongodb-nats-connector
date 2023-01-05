@@ -11,37 +11,37 @@ import (
 const defaultAddr = "127.0.0.1:8080"
 
 type Server struct {
-	addr       string
-	ctx        context.Context
-	components []MonitoredComponent
-	logger     *slog.Logger
+	addr     string
+	ctx      context.Context
+	monitors []NamedMonitor
+	logger   *slog.Logger
 
 	http *http.Server
 }
 
 func New(opts ...Option) *Server {
-	server := &Server{
-		addr:       defaultAddr,
-		ctx:        context.Background(),
-		components: []MonitoredComponent{},
-		logger:     slog.Default(),
+	s := &Server{
+		addr:     defaultAddr,
+		ctx:      context.Background(),
+		monitors: []NamedMonitor{},
+		logger:   slog.Default(),
 	}
 
 	for _, opt := range opts {
-		opt(server)
+		opt(s)
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/healthz", recoverer(NewHealthHandler(server.components...)))
-	server.http = &http.Server{
-		Addr:    server.addr,
-		Handler: mux,
+	mux.HandleFunc("/healthz", healthCheck(s.monitors...))
+	s.http = &http.Server{
+		Addr:    s.addr,
+		Handler: recoverer(mux),
 		BaseContext: func(l net.Listener) context.Context {
-			return server.ctx
+			return s.ctx
 		},
 	}
 
-	return server
+	return s
 }
 
 func (s *Server) Run() error {
@@ -72,10 +72,10 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
-func WithMonitoredComponents(components ...MonitoredComponent) Option {
+func WithNamedMonitors(monitors ...NamedMonitor) Option {
 	return func(s *Server) {
-		if components != nil {
-			s.components = components
+		if monitors != nil {
+			s.monitors = monitors
 		}
 	}
 }

@@ -40,7 +40,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 	c.conn = conn
 
-	if err = c.Ping(context.Background()); err != nil {
+	if err = c.Monitor(context.Background()); err != nil {
 		return nil, err
 	}
 
@@ -58,9 +58,9 @@ func (c *Client) Name() string {
 	return c.name
 }
 
-func (c *Client) Ping(_ context.Context) error {
+func (c *Client) Monitor(_ context.Context) error {
 	if closed := c.conn.IsClosed(); closed {
-		return errors.New("could not ping nats: connection closed")
+		return errors.New("could not reach nats: connection closed")
 	}
 	return nil
 }

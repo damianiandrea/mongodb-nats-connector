@@ -5,35 +5,27 @@ import (
 	"net/http"
 )
 
-type MonitoredComponent interface {
+type NamedMonitor interface {
 	Name() string
-	Ping(ctx context.Context) error
+	Monitor(ctx context.Context) error
 }
 
-type HealthHandler struct {
-	components []MonitoredComponent
-}
-
-func NewHealthHandler(components ...MonitoredComponent) *HealthHandler {
-	return &HealthHandler{
-		components: components,
-	}
-}
-
-func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	components := make(map[string]monitoredComponents, 0)
-	for _, component := range h.components {
-		if err := component.Ping(r.Context()); err == nil {
-			components[component.Name()] = monitoredComponents{Status: UP}
-		} else {
-			components[component.Name()] = monitoredComponents{Status: DOWN}
+func healthCheck(monitors ...NamedMonitor) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		components := make(map[string]monitoredComponents, 0)
+		for _, monitor := range monitors {
+			if err := monitor.Monitor(r.Context()); err == nil {
+				components[monitor.Name()] = monitoredComponents{Status: UP}
+			} else {
+				components[monitor.Name()] = monitoredComponents{Status: DOWN}
+			}
 		}
+		response := &healthResponse{
+			Status:     UP,
+			Components: components,
+		}
+		writeJson(w, http.StatusOK, response)
 	}
-	response := &healthResponse{
-		Status:     UP,
-		Components: components,
-	}
-	writeJson(w, http.StatusOK, response)
 }
 
 type healthResponse struct {

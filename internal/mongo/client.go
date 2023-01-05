@@ -42,7 +42,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 	c.client = client
 
-	if err = c.Ping(context.Background()); err != nil {
+	if err = c.Monitor(context.Background()); err != nil {
 		return nil, err
 	}
 
@@ -54,9 +54,9 @@ func (c *Client) Name() string {
 	return c.name
 }
 
-func (c *Client) Ping(ctx context.Context) error {
+func (c *Client) Monitor(ctx context.Context) error {
 	if err := c.client.Ping(ctx, readpref.Primary()); err != nil {
-		return fmt.Errorf("could not ping mongodb: %v", err)
+		return fmt.Errorf("could not reach mongodb: %v", err)
 	}
 	return nil
 }
