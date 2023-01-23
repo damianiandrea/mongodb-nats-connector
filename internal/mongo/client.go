@@ -42,10 +42,6 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 	c.client = client
 
-	if err = c.Monitor(context.Background()); err != nil {
-		return nil, err
-	}
-
 	c.logger.Info("connected to mongodb", "uri", c.uri)
 	return c, nil
 }
@@ -57,6 +53,13 @@ func (c *Client) Name() string {
 func (c *Client) Monitor(ctx context.Context) error {
 	if err := c.client.Ping(ctx, readpref.Primary()); err != nil {
 		return fmt.Errorf("could not reach mongodb: %v", err)
+	}
+	return nil
+}
+
+func (c *Client) Close() error {
+	if err := c.client.Disconnect(context.Background()); err != nil {
+		return fmt.Errorf("could not close mongodb client: %v", err)
 	}
 	return nil
 }
@@ -185,13 +188,6 @@ type WatchCollectionOptions struct {
 
 type resumeToken struct {
 	Value string `bson:"value"`
-}
-
-func (c *Client) Close() error {
-	if err := c.client.Disconnect(context.Background()); err != nil {
-		return fmt.Errorf("could not close mongodb client: %v", err)
-	}
-	return nil
 }
 
 type ClientOption func(*Client)

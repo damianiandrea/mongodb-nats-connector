@@ -14,6 +14,10 @@ const (
 	defaultName = "nats"
 )
 
+var (
+	ErrClientDisconnected = errors.New("could not reach nats: connection closed")
+)
+
 type Client struct {
 	url    string
 	name   string
@@ -40,14 +44,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 	c.conn = conn
 
-	if err = c.Monitor(context.Background()); err != nil {
-		return nil, err
-	}
-
-	js, err := conn.JetStream()
-	if err != nil {
-		return nil, fmt.Errorf("could not create nats jetstream context: %v", err)
-	}
+	js, _ := conn.JetStream()
 	c.js = js
 
 	c.logger.Info("connected to nats", "url", conn.ConnectedUrlRedacted())
@@ -60,35 +57,45 @@ func (c *Client) Name() string {
 
 func (c *Client) Monitor(_ context.Context) error {
 	if closed := c.conn.IsClosed(); closed {
-		return errors.New("could not reach nats: connection closed")
+		return ErrClientDisconnected
 	}
-	return nil
-}
-
-func (c *Client) AddStream(_ context.Context, streamName string) error {
-	_, err := c.js.AddStream(&nats.StreamConfig{
-		Name:     streamName,
-		Subjects: []string{fmt.Sprintf("%s.*", streamName)},
-		Storage:  nats.FileStorage,
-	})
-	if err != nil {
-		return fmt.Errorf("could not add nats stream %v: %v", streamName, err)
-	}
-	c.logger.Debug("added nats stream", "streamName", streamName)
-	return nil
-}
-
-func (c *Client) Publish(_ context.Context, subj, msgId string, data []byte) error {
-	if _, err := c.js.Publish(subj, data, nats.MsgId(msgId)); err != nil {
-		return fmt.Errorf("could not publish message %v to nats stream %v: %v", data, subj, err)
-	}
-	c.logger.Debug("published message", "subj", subj, "data", string(data))
 	return nil
 }
 
 func (c *Client) Close() error {
 	c.conn.Close()
 	return nil
+}
+
+func (c *Client) AddStream(_ context.Context, opts *AddStreamOptions) error {
+	_, err := c.js.AddStream(&nats.StreamConfig{
+		Name:     opts.StreamName,
+		Subjects: []string{fmt.Sprintf("%s.*", opts.StreamName)},
+		Storage:  nats.FileStorage,
+	})
+	if err != nil {
+		return fmt.Errorf("could not add nats stream %v: %v", opts.StreamName, err)
+	}
+	c.logger.Debug("added nats stream", "streamName", opts.StreamName)
+	return nil
+}
+
+type AddStreamOptions struct {
+	StreamName string
+}
+
+func (c *Client) Publish(_ context.Context, opts *PublishOptions) error {
+	if _, err := c.js.Publish(opts.Subj, opts.Data, nats.MsgId(opts.MsgId)); err != nil {
+		return fmt.Errorf("could not publish message %v to nats stream %v: %v", opts.Data, opts.Subj, err)
+	}
+	c.logger.Debug("published message", "subj", opts.Subj, "data", string(opts.Data))
+	return nil
+}
+
+type PublishOptions struct {
+	Subj  string
+	MsgId string
+	Data  []byte
 }
 
 type ClientOption func(*Client)

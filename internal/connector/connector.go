@@ -95,7 +95,8 @@ func (c *Connector) Run() error {
 			return err
 		}
 
-		if err := c.natsClient.AddStream(groupCtx, coll.StreamName); err != nil {
+		addStreamOpts := &nats.AddStreamOptions{StreamName: coll.StreamName}
+		if err := c.natsClient.AddStream(groupCtx, addStreamOpts); err != nil {
 			return err
 		}
 
@@ -107,7 +108,14 @@ func (c *Connector) Run() error {
 				ResumeTokensCollName:   coll.TokensCollName,
 				ResumeTokensCollCapped: *coll.TokensCollCapped,
 				StreamName:             coll.StreamName,
-				ChangeEventHandler:     c.natsClient.Publish,
+				ChangeEventHandler: func(ctx context.Context, subj, msgId string, data []byte) error {
+					publishOpts := &nats.PublishOptions{
+						Subj:  subj,
+						MsgId: msgId,
+						Data:  data,
+					}
+					return c.natsClient.Publish(ctx, publishOpts)
+				},
 			}
 			return c.mongoClient.WatchCollection(groupCtx, watchCollOpts) // blocking call
 		})
