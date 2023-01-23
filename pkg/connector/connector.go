@@ -2,6 +2,8 @@ package connector
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -11,10 +13,17 @@ import (
 	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/damianiandrea/go-mongo-nats-connector/internal/config"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/mongo"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/nats"
 	"github.com/damianiandrea/go-mongo-nats-connector/internal/server"
+	"github.com/damianiandrea/go-mongo-nats-connector/pkg/config"
+)
+
+const (
+	defaultChangeStreamPreAndPostImages = false
+	defaultTokensDbName                 = "resume-tokens"
+	defaultTokensCollCapped             = true
+	defaultTokensCollSizeInBytes        = 4096
 )
 
 type Connector struct {
@@ -29,6 +38,10 @@ type Connector struct {
 }
 
 func New(cfg *config.Config) (*Connector, error) {
+	if err := validateAndSetDefaults(cfg); err != nil {
+		return nil, fmt.Errorf("invalid config: %v", err)
+	}
+
 	logLevel := convertLogLevel(cfg.Connector.Log.Level)
 	loggerOpts := &slog.HandlerOptions{Level: logLevel}
 	logger := slog.New(loggerOpts.NewJSONHandler(os.Stdout))
@@ -131,6 +144,57 @@ func (c *Connector) Run() error {
 	})
 
 	return group.Wait()
+}
+
+func validateAndSetDefaults(cfg *config.Config) error {
+	if cfg.Connector.Addr == "" {
+		cfg.Connector.Addr = os.Getenv("SERVER_ADDR")
+	}
+
+	if cfg.Connector.Mongo.Uri == "" {
+		cfg.Connector.Mongo.Uri = os.Getenv("MONGO_URI")
+	}
+
+	if cfg.Connector.Nats.Url == "" {
+		cfg.Connector.Nats.Url = os.Getenv("NATS_URL")
+	}
+
+	for _, coll := range cfg.Connector.Collections {
+		if coll.DbName == "" {
+			return errors.New("dbName property is missing")
+		}
+		if coll.CollName == "" {
+			return errors.New("collName property is missing")
+		}
+		if coll.ChangeStreamPreAndPostImages == nil {
+			defVal := defaultChangeStreamPreAndPostImages
+			coll.ChangeStreamPreAndPostImages = &defVal
+		}
+		if coll.TokensDbName == "" {
+			coll.TokensDbName = defaultTokensDbName
+		}
+		// if missing, use the coll name
+		if coll.TokensCollName == "" {
+			coll.TokensCollName = coll.CollName
+		}
+		if coll.TokensCollCapped == nil {
+			defVal := defaultTokensCollCapped
+			coll.TokensCollCapped = &defVal
+		}
+		if coll.TokensCollSizeInBytes == nil {
+			var defVal int64 = defaultTokensCollSizeInBytes
+			coll.TokensCollSizeInBytes = &defVal
+		}
+		// if missing, use the uppercase of the coll name
+		if coll.StreamName == "" {
+			coll.StreamName = strings.ToUpper(coll.CollName)
+		}
+		if strings.EqualFold(coll.DbName, coll.TokensDbName) && strings.EqualFold(coll.CollName, coll.TokensCollName) {
+			return fmt.Errorf("cannot store tokens in the same db and collection of the collection to be watched")
+		}
+	}
+
+	return nil
 }
 
 func convertLogLevel(logLevel string) slog.Level {
