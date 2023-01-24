@@ -45,12 +45,12 @@ func New(opts ...Option) *Server {
 }
 
 func (s *Server) Run() error {
-	s.logger.Info("connector started", "addr", s.addr)
+	s.logger.Info("server started", "addr", s.addr)
 	return s.http.ListenAndServe()
 }
 
 func (s *Server) Close() error {
-	s.logger.Info("connector gracefully shutting down", "addr", s.addr)
+	s.logger.Info("server gracefully shutting down", "addr", s.addr)
 	return s.http.Shutdown(context.Background())
 }
 
