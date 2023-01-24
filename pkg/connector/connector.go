@@ -159,6 +159,10 @@ func validateAndSetDefaults(cfg *config.Config) error {
 		cfg.Connector.Nats.Url = os.Getenv("NATS_URL")
 	}
 
+	if cfg.Connector.Log.Level == "" {
+		cfg.Connector.Log.Level = os.Getenv("LOG_LEVEL")
+	}
+
 	for _, coll := range cfg.Connector.Collections {
 		if coll.DbName == "" {
 			return errors.New("dbName property is missing")

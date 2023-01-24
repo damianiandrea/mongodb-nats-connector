@@ -11,6 +11,11 @@ import (
 
 var validYamlConfig = `
 connector:
+  addr: ":8080"
+  mongo:
+    uri: "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=go-mongo-nats-connector"
+  nats:
+    url: "nats://127.0.0.1:4222"
   log:
     level: "debug"
   collections:
@@ -43,15 +48,19 @@ func TestLoad(t *testing.T) {
 
 		config, err := Load(configFile)
 
+		addr := ":8080"
+		mongoUri := "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=go-mongo-nats-connector"
+		natsUrl := "nats://127.0.0.1:4222"
+		logLevel := "debug"
 		csPrePostImages := true
 		capped := true
 		nonCapped := false
 		collSize := int64(4096)
 		require.NoError(t, err)
-		require.Empty(t, config.Connector.Addr)
-		require.Empty(t, config.Connector.Mongo.Uri)
-		require.Empty(t, config.Connector.Nats.Url)
-		require.Equal(t, "debug", config.Connector.Log.Level)
+		require.Equal(t, addr, config.Connector.Addr)
+		require.Equal(t, mongoUri, config.Connector.Mongo.Uri)
+		require.Equal(t, natsUrl, config.Connector.Nats.Url)
+		require.Equal(t, logLevel, config.Connector.Log.Level)
 		require.Contains(t, config.Connector.Collections, &Collection{
 			DbName:                       "test-connector",
 			CollName:                     "coll1",
