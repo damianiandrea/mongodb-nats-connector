@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
 
-	"github.com/damianiandrea/go-mongo-nats-connector/test"
+	"github.com/damianiandrea/mongodb-nats-connector/test"
 )
 
 func TestNew(t *testing.T) {

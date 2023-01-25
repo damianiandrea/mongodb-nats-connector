@@ -1,6 +1,6 @@
 # MongoDB-NATS Connector
 
-![CI](https://github.com/damianiandrea/go-mongo-nats-connector/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/damianiandrea/mongodb-nats-connector/actions/workflows/ci.yml/badge.svg)
 
 A connector that uses MongoDB's change streams to capture data changes and publishes those changes to NATS JetStream.
 

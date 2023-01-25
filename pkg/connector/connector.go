@@ -13,10 +13,10 @@ import (
 	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/damianiandrea/go-mongo-nats-connector/internal/mongo"
-	"github.com/damianiandrea/go-mongo-nats-connector/internal/nats"
-	"github.com/damianiandrea/go-mongo-nats-connector/internal/server"
-	"github.com/damianiandrea/go-mongo-nats-connector/pkg/config"
+	"github.com/damianiandrea/mongodb-nats-connector/internal/mongo"
+	"github.com/damianiandrea/mongodb-nats-connector/internal/nats"
+	"github.com/damianiandrea/mongodb-nats-connector/internal/server"
+	"github.com/damianiandrea/mongodb-nats-connector/pkg/config"
 )
 
 const (
@@ -27,13 +27,12 @@ const (
 )
 
 type Connector struct {
-	ctx  context.Context
-	stop context.CancelFunc
-
 	cfg         *config.Config
 	logger      *slog.Logger
 	mongoClient *mongo.Client
 	natsClient  *nats.Client
+	ctx         context.Context
+	stop        context.CancelFunc
 	server      *server.Server
 }
 

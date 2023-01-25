@@ -12,12 +12,12 @@ services:
       - connector-net
     ports:
       - "27017:27017"
-    command: [ "--replSet", "go-mongo-nats-connector", "--bind_ip_all" ]
+    command: [ "--replSet", "mongodb-nats-connector", "--bind_ip_all" ]
     deploy:
       restart_policy:
         condition: on-failure
     healthcheck:
-      test: test $$(echo "rs.initiate({_id:\"go-mongo-nats-connector\",members:[{_id:0,host:\"mongo1:27017\"},{_id:1,host:\"mongo2:27017\"},{_id:2,host:\"mongo3:27017\"}]}).ok || rs.status().ok" | mongosh --port 27017 --quiet) -eq 1
+      test: test $$(echo "rs.initiate({_id:\"mongodb-nats-connector\",members:[{_id:0,host:\"mongo1:27017\"},{_id:1,host:\"mongo2:27017\"},{_id:2,host:\"mongo3:27017\"}]}).ok || rs.status().ok" | mongosh --port 27017 --quiet) -eq 1
       interval: 10s
       start_period: 30s
   mongo2:
@@ -28,7 +28,7 @@ services:
       - connector-net
     ports:
       - "27018:27017"
-    command: [ "--replSet", "go-mongo-nats-connector", "--bind_ip_all" ]
+    command: [ "--replSet", "mongodb-nats-connector", "--bind_ip_all" ]
     deploy:
       restart_policy:
         condition: on-failure
@@ -40,7 +40,7 @@ services:
       - connector-net
     ports:
       - "27019:27017"
-    command: [ "--replSet", "go-mongo-nats-connector", "--bind_ip_all" ]
+    command: [ "--replSet", "mongodb-nats-connector", "--bind_ip_all" ]
     deploy:
       restart_policy:
         condition: on-failure
@@ -87,7 +87,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=go-mongo-nats-connector
+      - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=mongodb-nats-connector
       - NATS_URL=nats://nats1:4222
       - SERVER_ADDR=:8080
     deploy:
@@ -104,7 +104,7 @@ services:
     networks:
       - connector-net
     environment:
-      - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=go-mongo-nats-connector
+      - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=mongodb-nats-connector
       - NATS_URL=nats://nats1:4222
       - CONNECTOR_URL=http://connector:8080
 

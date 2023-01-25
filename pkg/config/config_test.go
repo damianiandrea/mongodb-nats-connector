@@ -13,7 +13,7 @@ var validYamlConfig = `
 connector:
   addr: ":8080"
   mongo:
-    uri: "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=go-mongo-nats-connector"
+    uri: "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=mongodb-nats-connector"
   nats:
     url: "nats://127.0.0.1:4222"
   log:
@@ -49,7 +49,7 @@ func TestLoad(t *testing.T) {
 		config, err := Load(configFile)
 
 		addr := ":8080"
-		mongoUri := "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=go-mongo-nats-connector"
+		mongoUri := "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=mongodb-nats-connector"
 		natsUrl := "nats://127.0.0.1:4222"
 		logLevel := "debug"
 		csPrePostImages := true

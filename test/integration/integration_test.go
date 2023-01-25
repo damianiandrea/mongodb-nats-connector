@@ -20,7 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
-	"github.com/damianiandrea/go-mongo-nats-connector/test"
+	"github.com/damianiandrea/mongodb-nats-connector/test"
 )
 
 var (

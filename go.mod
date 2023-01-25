@@ -1,4 +1,4 @@
-module github.com/damianiandrea/go-mongo-nats-connector
+module github.com/damianiandrea/mongodb-nats-connector
 
 go 1.19
 
