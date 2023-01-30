@@ -153,14 +153,15 @@ func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptio
 			subj := fmt.Sprintf("%s.%s", opts.StreamName, operationType)
 			if err = opts.ChangeEventHandler(ctx, subj, currentResumeToken, json); err != nil {
 				// current change event was not published.
-				// connector will retry from the previous token.
+				// current resume token will not be stored.
+				// connector will resume after the previous token.
 				c.logger.Error("could not publish change event", err)
 				break
 			}
 
 			if _, err = resumeTokensColl.InsertOne(ctx, &resumeToken{Value: currentResumeToken}); err != nil {
 				// change event has been published but token insertion failed.
-				// connector will retry from the previous token, publishing a duplicate change event.
+				// connector will resume after the previous token, publishing a duplicate change event.
 				// consumers should be able to detect and discard the duplicate change event by using the msg id.
 				c.logger.Error("could not insert resume token", err)
 				break

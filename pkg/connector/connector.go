@@ -145,6 +145,18 @@ func (c *Connector) Run() error {
 	return group.Wait()
 }
 
+func (c *Connector) cleanup() {
+	c.closeClient(c.mongoClient)
+	c.closeClient(c.natsClient)
+	c.stop()
+}
+
+func (c *Connector) closeClient(closer io.Closer) {
+	if err := closer.Close(); err != nil {
+		c.logger.Error("could not close client", err)
+	}
+}
+
 func validateAndSetDefaults(cfg *config.Config) error {
 	if cfg.Connector.Addr == "" {
 		cfg.Connector.Addr = os.Getenv("SERVER_ADDR")
@@ -212,17 +224,5 @@ func convertLogLevel(logLevel string) slog.Level {
 		fallthrough
 	default:
 		return slog.InfoLevel
-	}
-}
-
-func (c *Connector) cleanup() {
-	c.closeClient(c.mongoClient)
-	c.closeClient(c.natsClient)
-	c.stop()
-}
-
-func (c *Connector) closeClient(closer io.Closer) {
-	if err := closer.Close(); err != nil {
-		c.logger.Error("could not close client", err)
 	}
 }
