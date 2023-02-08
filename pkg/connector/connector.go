@@ -64,7 +64,7 @@ func New(cfg *config.Config) (*Connector, error) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	srv := server.New(
-		server.WithAddr(cfg.Connector.Addr),
+		server.WithAddr(cfg.Connector.Server.Addr),
 		server.WithContext(ctx),
 		server.WithNamedMonitors(mongoClient, natsClient),
 		server.WithLogger(logger),
@@ -158,8 +158,8 @@ func (c *Connector) closeClient(closer io.Closer) {
 }
 
 func validateAndSetDefaults(cfg *config.Config) error {
-	if cfg.Connector.Addr == "" {
-		cfg.Connector.Addr = os.Getenv("SERVER_ADDR")
+	if cfg.Connector.Log.Level == "" {
+		cfg.Connector.Log.Level = os.Getenv("LOG_LEVEL")
 	}
 
 	if cfg.Connector.Mongo.Uri == "" {
@@ -170,8 +170,8 @@ func validateAndSetDefaults(cfg *config.Config) error {
 		cfg.Connector.Nats.Url = os.Getenv("NATS_URL")
 	}
 
-	if cfg.Connector.Log.Level == "" {
-		cfg.Connector.Log.Level = os.Getenv("LOG_LEVEL")
+	if cfg.Connector.Server.Addr == "" {
+		cfg.Connector.Server.Addr = os.Getenv("SERVER_ADDR")
 	}
 
 	for _, coll := range cfg.Connector.Collections {
@@ -180,6 +180,10 @@ func validateAndSetDefaults(cfg *config.Config) error {
 		}
 		if coll.CollName == "" {
 			return errors.New("collName property is missing")
+		}
+		if strings.EqualFold(coll.DbName, coll.TokensDbName) &&
+			strings.EqualFold(coll.CollName, coll.TokensCollName) {
+			return fmt.Errorf("cannot store tokens in the same db and collection of the collection to be watched")
 		}
 		if coll.ChangeStreamPreAndPostImages == nil {
 			defVal := defaultChangeStreamPreAndPostImages
@@ -203,9 +207,6 @@ func validateAndSetDefaults(cfg *config.Config) error {
 		// if missing, use the uppercase of the coll name
 		if coll.StreamName == "" {
 			coll.StreamName = strings.ToUpper(coll.CollName)
-		}
-		if strings.EqualFold(coll.DbName, coll.TokensDbName) && strings.EqualFold(coll.CollName, coll.TokensCollName) {
-			return fmt.Errorf("cannot store tokens in the same db and collection of the collection to be watched")
 		}
 	}
 

@@ -11,13 +11,14 @@ import (
 
 var validYamlConfig = `
 connector:
-  addr: ":8080"
+  log:
+    level: "debug"
   mongo:
     uri: "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=mongodb-nats-connector"
   nats:
     url: "nats://127.0.0.1:4222"
-  log:
-    level: "debug"
+  server:
+    addr: ":8080"
   collections:
     - dbName: "test-connector"
       collName: "coll1"
@@ -48,19 +49,22 @@ func TestLoad(t *testing.T) {
 
 		config, err := Load(configFile)
 
-		addr := ":8080"
-		mongoUri := "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=mongodb-nats-connector"
-		natsUrl := "nats://127.0.0.1:4222"
-		logLevel := "debug"
-		csPrePostImages := true
-		capped := true
-		nonCapped := false
-		collSize := int64(4096)
+		var (
+			logLevel        = "debug"
+			mongoUri        = "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/?replicaSet=mongodb-nats-connector"
+			natsUrl         = "nats://127.0.0.1:4222"
+			addr            = ":8080"
+			csPrePostImages = true
+			capped          = true
+			nonCapped       = false
+			collSize        = int64(4096)
+		)
+
 		require.NoError(t, err)
-		require.Equal(t, addr, config.Connector.Addr)
+		require.Equal(t, logLevel, config.Connector.Log.Level)
 		require.Equal(t, mongoUri, config.Connector.Mongo.Uri)
 		require.Equal(t, natsUrl, config.Connector.Nats.Url)
-		require.Equal(t, logLevel, config.Connector.Log.Level)
+		require.Equal(t, addr, config.Connector.Server.Addr)
 		require.Contains(t, config.Connector.Collections, &Collection{
 			DbName:                       "test-connector",
 			CollName:                     "coll1",
