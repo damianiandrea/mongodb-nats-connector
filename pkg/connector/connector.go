@@ -3,7 +3,6 @@ package connector
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -26,6 +25,12 @@ const (
 	defaultTokensCollSizeInBytes        = 4096
 )
 
+var (
+	ErrDbNameMissing         = errors.New("invalid config: `dbName` is missing")
+	ErrCollNameMissing       = errors.New("invalid config: `collName` is missing")
+	ErrInvalidDbAndCollNames = errors.New("invalid config: `dbName` and `tokensDbName` cannot be the same if `collName` and `tokensCollName` are the same")
+)
+
 type Connector struct {
 	cfg         *config.Config
 	logger      *slog.Logger
@@ -38,7 +43,7 @@ type Connector struct {
 
 func New(cfg *config.Config) (*Connector, error) {
 	if err := validateAndSetDefaults(cfg); err != nil {
-		return nil, fmt.Errorf("invalid config: %v", err)
+		return nil, err
 	}
 
 	logLevel := convertLogLevel(cfg.Connector.Log.Level)
@@ -176,14 +181,14 @@ func validateAndSetDefaults(cfg *config.Config) error {
 
 	for _, coll := range cfg.Connector.Collections {
 		if coll.DbName == "" {
-			return errors.New("dbName property is missing")
+			return ErrDbNameMissing
 		}
 		if coll.CollName == "" {
-			return errors.New("collName property is missing")
+			return ErrCollNameMissing
 		}
 		if strings.EqualFold(coll.DbName, coll.TokensDbName) &&
 			strings.EqualFold(coll.CollName, coll.TokensCollName) {
-			return fmt.Errorf("cannot store tokens in the same db and collection of the collection to be watched")
+			return ErrInvalidDbAndCollNames
 		}
 		if coll.ChangeStreamPreAndPostImages == nil {
 			defVal := defaultChangeStreamPreAndPostImages
