@@ -164,20 +164,20 @@ func (c *Connector) closeClient(closer io.Closer) {
 }
 
 func validateAndSetDefaults(cfg *config.Config) error {
-	if cfg.Connector.Log.Level == "" {
-		cfg.Connector.Log.Level = os.Getenv("LOG_LEVEL")
+	if logLevel, found := os.LookupEnv("LOG_LEVEL"); found {
+		cfg.Connector.Log.Level = logLevel
 	}
 
-	if cfg.Connector.Mongo.Uri == "" {
-		cfg.Connector.Mongo.Uri = os.Getenv("MONGO_URI")
+	if mongoUri, found := os.LookupEnv("MONGO_URI"); found {
+		cfg.Connector.Mongo.Uri = mongoUri
 	}
 
-	if cfg.Connector.Nats.Url == "" {
-		cfg.Connector.Nats.Url = os.Getenv("NATS_URL")
+	if natsUrl, found := os.LookupEnv("NATS_URL"); found {
+		cfg.Connector.Nats.Url = natsUrl
 	}
 
-	if cfg.Connector.Server.Addr == "" {
-		cfg.Connector.Server.Addr = os.Getenv("SERVER_ADDR")
+	if serverAddr, found := os.LookupEnv("SERVER_ADDR"); found {
+		cfg.Connector.Server.Addr = serverAddr
 	}
 
 	for _, coll := range cfg.Connector.Collections {
