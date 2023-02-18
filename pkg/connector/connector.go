@@ -93,6 +93,7 @@ func (c *Connector) Run() error {
 
 	for _, _coll := range c.cfg.Connector.Collections {
 		coll := _coll // to avoid unexpected behavior
+
 		createWatchedCollOpts := &mongo.CreateCollectionOptions{
 			DbName:                       coll.DbName,
 			CollName:                     coll.CollName,
