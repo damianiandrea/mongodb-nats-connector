@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	defaultLogLevel                     = slog.InfoLevel
 	defaultChangeStreamPreAndPostImages = false
 	defaultTokensDbName                 = "resume-tokens"
 	defaultTokensCollCapped             = true
@@ -228,8 +229,8 @@ func convertLogLevel(logLevel string) slog.Level {
 	case "error":
 		return slog.ErrorLevel
 	case "info":
-		fallthrough
-	default:
 		return slog.InfoLevel
+	default:
+		return defaultLogLevel
 	}
 }
