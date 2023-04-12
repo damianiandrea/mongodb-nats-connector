@@ -15,118 +15,116 @@ import (
 	"github.com/damianiandrea/mongodb-nats-connector/internal/mongo"
 	"github.com/damianiandrea/mongodb-nats-connector/internal/nats"
 	"github.com/damianiandrea/mongodb-nats-connector/internal/server"
-	"github.com/damianiandrea/mongodb-nats-connector/pkg/config"
 )
 
 const (
 	defaultLogLevel                     = slog.InfoLevel
 	defaultChangeStreamPreAndPostImages = false
 	defaultTokensDbName                 = "resume-tokens"
-	defaultTokensCollCapped             = true
-	defaultTokensCollSizeInBytes        = 4096
+	defaultTokensCollCapped             = false
+	defaultTokensCollSizeInBytes        = 0
 )
 
 var (
-	ErrDbNameMissing         = errors.New("invalid config: `dbName` is missing")
-	ErrCollNameMissing       = errors.New("invalid config: `collName` is missing")
-	ErrInvalidDbAndCollNames = errors.New("invalid config: `dbName` and `tokensDbName` cannot be the same if `collName` and `tokensCollName` are the same")
+	ErrDbNameMissing          = errors.New("invalid config: `dbName` is missing")
+	ErrCollNameMissing        = errors.New("invalid config: `collName` is missing")
+	ErrInvalidCollSizeInBytes = errors.New("invalid config: `collSizeInBytes` must be greater than 0")
+	ErrInvalidDbAndCollNames  = errors.New("invalid config: `dbName` and `tokensDbName` cannot be the same if `collName` and `tokensCollName` are the same")
 )
 
 type Connector struct {
-	cfg         *config.Config
+	options Options
+
 	logger      *slog.Logger
 	mongoClient *mongo.Client
 	natsClient  *nats.Client
-	ctx         context.Context
-	stop        context.CancelFunc
 	server      *server.Server
 }
 
-func New(cfg *config.Config) (*Connector, error) {
-	if err := validateAndSetDefaults(cfg); err != nil {
-		return nil, err
+func New(opts ...Option) (*Connector, error) {
+	c := &Connector{
+		options: getDefaultOptions(),
 	}
 
-	logLevel := convertLogLevel(cfg.Connector.Log.Level)
-	loggerOpts := &slog.HandlerOptions{Level: logLevel}
-	logger := slog.New(loggerOpts.NewJSONHandler(os.Stdout))
-
-	mongoClient, err := mongo.NewClient(
-		mongo.WithMongoUri(cfg.Connector.Mongo.Uri),
-		mongo.WithLogger(logger),
-	)
-	if err != nil {
-		return nil, err
+	for _, opt := range opts {
+		if err := opt(&c.options); err != nil {
+			return nil, err
+		}
 	}
 
-	natsClient, err := nats.NewClient(
-		nats.WithNatsUrl(cfg.Connector.Nats.Url),
-		nats.WithLogger(logger),
-	)
-	if err != nil {
+	loggerOpts := &slog.HandlerOptions{Level: c.options.logLevel}
+	c.logger = slog.New(loggerOpts.NewJSONHandler(os.Stdout))
+
+	if mongoClient, err := mongo.NewClient(
+		mongo.WithMongoUri(c.options.mongoUri),
+		mongo.WithLogger(c.logger),
+	); err != nil {
 		return nil, err
+	} else {
+		c.mongoClient = mongoClient
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	if natsClient, err := nats.NewClient(
+		nats.WithNatsUrl(c.options.natsUrl),
+		nats.WithLogger(c.logger),
+	); err != nil {
+		return nil, err
+	} else {
+		c.natsClient = natsClient
+	}
 
-	srv := server.New(
-		server.WithAddr(cfg.Connector.Server.Addr),
-		server.WithContext(ctx),
-		server.WithNamedMonitors(mongoClient, natsClient),
-		server.WithLogger(logger),
+	c.options.ctx, c.options.stop = signal.NotifyContext(c.options.ctx, syscall.SIGINT, syscall.SIGTERM)
+
+	c.server = server.New(
+		server.WithAddr(c.options.serverAddr),
+		server.WithContext(c.options.ctx),
+		server.WithNamedMonitors(c.mongoClient, c.natsClient),
+		server.WithLogger(c.logger),
 	)
 
-	return &Connector{
-		ctx:         ctx,
-		stop:        stop,
-		cfg:         cfg,
-		logger:      logger,
-		mongoClient: mongoClient,
-		natsClient:  natsClient,
-		server:      srv,
-	}, nil
+	return c, nil
 }
 
 func (c *Connector) Run() error {
 	defer c.cleanup()
 
-	group, groupCtx := errgroup.WithContext(c.ctx)
+	group, groupCtx := errgroup.WithContext(c.options.ctx)
 
-	for _, _coll := range c.cfg.Connector.Collections {
+	for _, _coll := range c.options.collections {
 		coll := _coll // to avoid unexpected behavior
 
 		createWatchedCollOpts := &mongo.CreateCollectionOptions{
-			DbName:                       coll.DbName,
-			CollName:                     coll.CollName,
-			ChangeStreamPreAndPostImages: *coll.ChangeStreamPreAndPostImages,
+			DbName:                       coll.dbName,
+			CollName:                     coll.collName,
+			ChangeStreamPreAndPostImages: coll.changeStreamPreAndPostImages,
 		}
 		if err := c.mongoClient.CreateCollection(groupCtx, createWatchedCollOpts); err != nil {
 			return err
 		}
 
 		createResumeTokensCollOpts := &mongo.CreateCollectionOptions{
-			DbName:      coll.TokensDbName,
-			CollName:    coll.TokensCollName,
-			Capped:      *coll.TokensCollCapped,
-			SizeInBytes: *coll.TokensCollSizeInBytes,
+			DbName:      coll.tokensDbName,
+			CollName:    coll.tokensCollName,
+			Capped:      coll.tokensCollCapped,
+			SizeInBytes: coll.tokensCollSizeInBytes,
 		}
 		if err := c.mongoClient.CreateCollection(groupCtx, createResumeTokensCollOpts); err != nil {
 			return err
 		}
 
-		addStreamOpts := &nats.AddStreamOptions{StreamName: coll.StreamName}
+		addStreamOpts := &nats.AddStreamOptions{StreamName: coll.streamName}
 		if err := c.natsClient.AddStream(groupCtx, addStreamOpts); err != nil {
 			return err
 		}
 
 		group.Go(func() error {
 			watchCollOpts := &mongo.WatchCollectionOptions{
-				WatchedDbName:          coll.DbName,
-				WatchedCollName:        coll.CollName,
-				ResumeTokensDbName:     coll.TokensDbName,
-				ResumeTokensCollName:   coll.TokensCollName,
-				ResumeTokensCollCapped: *coll.TokensCollCapped,
-				StreamName:             coll.StreamName,
+				WatchedDbName:          coll.dbName,
+				WatchedCollName:        coll.collName,
+				ResumeTokensDbName:     coll.tokensDbName,
+				ResumeTokensCollName:   coll.tokensCollName,
+				ResumeTokensCollCapped: coll.tokensCollCapped,
+				StreamName:             coll.streamName,
 				ChangeEventHandler: func(ctx context.Context, subj, msgId string, data []byte) error {
 					publishOpts := &nats.PublishOptions{
 						Subj:  subj,
@@ -155,7 +153,7 @@ func (c *Connector) Run() error {
 func (c *Connector) cleanup() {
 	c.closeClient(c.mongoClient)
 	c.closeClient(c.natsClient)
-	c.stop()
+	c.options.stop()
 }
 
 func (c *Connector) closeClient(closer io.Closer) {
@@ -164,73 +162,164 @@ func (c *Connector) closeClient(closer io.Closer) {
 	}
 }
 
-func validateAndSetDefaults(cfg *config.Config) error {
-	if logLevel, found := os.LookupEnv("LOG_LEVEL"); found {
-		cfg.Connector.Log.Level = logLevel
-	}
-
-	if mongoUri, found := os.LookupEnv("MONGO_URI"); found {
-		cfg.Connector.Mongo.Uri = mongoUri
-	}
-
-	if natsUrl, found := os.LookupEnv("NATS_URL"); found {
-		cfg.Connector.Nats.Url = natsUrl
-	}
-
-	if serverAddr, found := os.LookupEnv("SERVER_ADDR"); found {
-		cfg.Connector.Server.Addr = serverAddr
-	}
-
-	for _, coll := range cfg.Connector.Collections {
-		if coll.DbName == "" {
-			return ErrDbNameMissing
-		}
-		if coll.CollName == "" {
-			return ErrCollNameMissing
-		}
-		if strings.EqualFold(coll.DbName, coll.TokensDbName) &&
-			strings.EqualFold(coll.CollName, coll.TokensCollName) {
-			return ErrInvalidDbAndCollNames
-		}
-		if coll.ChangeStreamPreAndPostImages == nil {
-			defVal := defaultChangeStreamPreAndPostImages
-			coll.ChangeStreamPreAndPostImages = &defVal
-		}
-		if coll.TokensDbName == "" {
-			coll.TokensDbName = defaultTokensDbName
-		}
-		// if missing, use the coll name
-		if coll.TokensCollName == "" {
-			coll.TokensCollName = coll.CollName
-		}
-		if coll.TokensCollCapped == nil {
-			defVal := defaultTokensCollCapped
-			coll.TokensCollCapped = &defVal
-		}
-		if coll.TokensCollSizeInBytes == nil {
-			var defVal int64 = defaultTokensCollSizeInBytes
-			coll.TokensCollSizeInBytes = &defVal
-		}
-		// if missing, use the uppercase of the coll name
-		if coll.StreamName == "" {
-			coll.StreamName = strings.ToUpper(coll.CollName)
-		}
-	}
-
-	return nil
+type Options struct {
+	logLevel    slog.Level
+	mongoUri    string
+	natsUrl     string
+	ctx         context.Context
+	stop        context.CancelFunc
+	serverAddr  string
+	collections []*collection
 }
 
-func convertLogLevel(logLevel string) slog.Level {
-	switch strings.ToLower(logLevel) {
-	case "debug":
-		return slog.DebugLevel
-	case "warn":
-		return slog.WarnLevel
-	case "error":
-		return slog.ErrorLevel
-	case "info":
-		return slog.InfoLevel
-	default:
-		return defaultLogLevel
+func getDefaultOptions() Options {
+	return Options{
+		logLevel:    defaultLogLevel,
+		ctx:         context.Background(),
+		collections: make([]*collection, 0),
+	}
+}
+
+type Option func(*Options) error
+
+func WithLogLevel(logLevel string) Option {
+	return func(o *Options) error {
+		switch strings.ToLower(logLevel) {
+		case "debug":
+			o.logLevel = slog.DebugLevel
+		case "warn":
+			o.logLevel = slog.WarnLevel
+		case "error":
+			o.logLevel = slog.ErrorLevel
+		case "info":
+			o.logLevel = slog.InfoLevel
+		}
+		return nil
+	}
+}
+
+func WithMongoUri(mongoUri string) Option {
+	return func(o *Options) error {
+		if mongoUri != "" {
+			o.mongoUri = mongoUri
+		}
+		return nil
+	}
+}
+
+func WithNatsUrl(natsUrl string) Option {
+	return func(o *Options) error {
+		if natsUrl != "" {
+			o.natsUrl = natsUrl
+		}
+		return nil
+	}
+}
+
+func WithContext(ctx context.Context) Option {
+	return func(o *Options) error {
+		if ctx != nil {
+			o.ctx = ctx
+		}
+		return nil
+	}
+}
+
+func WithServerAddr(serverAddr string) Option {
+	return func(o *Options) error {
+		if serverAddr != "" {
+			o.serverAddr = serverAddr
+		}
+		return nil
+	}
+}
+
+func WithCollection(dbName, collName string, opts ...CollectionOption) Option {
+	return func(o *Options) error {
+		if dbName == "" {
+			return ErrDbNameMissing
+		}
+		if collName == "" {
+			return ErrCollNameMissing
+		}
+		coll := &collection{
+			dbName:                       dbName,
+			collName:                     collName,
+			changeStreamPreAndPostImages: defaultChangeStreamPreAndPostImages,
+			tokensDbName:                 defaultTokensDbName,
+			tokensCollName:               collName,
+			tokensCollCapped:             defaultTokensCollCapped,
+			tokensCollSizeInBytes:        defaultTokensCollSizeInBytes,
+			streamName:                   strings.ToUpper(collName),
+		}
+		for _, opt := range opts {
+			if err := opt(coll); err != nil {
+				return err
+			}
+		}
+		if strings.EqualFold(coll.dbName, coll.tokensDbName) &&
+			strings.EqualFold(coll.collName, coll.tokensCollName) {
+			return ErrInvalidDbAndCollNames
+		}
+		o.collections = append(o.collections, coll)
+		return nil
+	}
+}
+
+type collection struct {
+	dbName                       string
+	collName                     string
+	changeStreamPreAndPostImages bool
+	tokensDbName                 string
+	tokensCollName               string
+	tokensCollCapped             bool
+	tokensCollSizeInBytes        int64
+	streamName                   string
+}
+
+type CollectionOption func(*collection) error
+
+func WithChangeStreamPreAndPostImages() CollectionOption {
+	return func(c *collection) error {
+		c.changeStreamPreAndPostImages = true
+		return nil
+	}
+}
+
+func WithTokensDbName(tokensDbName string) CollectionOption {
+	return func(c *collection) error {
+		if tokensDbName != "" {
+			c.tokensDbName = tokensDbName
+		}
+		return nil
+	}
+}
+
+func WithTokensCollName(tokensCollName string) CollectionOption {
+	return func(c *collection) error {
+		if tokensCollName != "" {
+			c.tokensCollName = tokensCollName
+		}
+		return nil
+	}
+}
+
+func WithTokensCollCapped(collSizeInBytes int64) CollectionOption {
+	return func(c *collection) error {
+		if collSizeInBytes <= 0 {
+			return ErrInvalidCollSizeInBytes
+		}
+		c.tokensCollCapped = true
+		c.tokensCollSizeInBytes = collSizeInBytes
+		return nil
+	}
+}
+
+func WithStreamName(streamName string) CollectionOption {
+	return func(c *collection) error {
+		if streamName != "" {
+			c.streamName = streamName
+		}
+		return nil
 	}
 }
