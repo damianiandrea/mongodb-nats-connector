@@ -12,8 +12,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
-
-	"github.com/damianiandrea/mongodb-nats-connector/test"
 )
 
 func TestNew(t *testing.T) {
@@ -62,12 +60,12 @@ func TestServer_Run(t *testing.T) {
 		// stop server when done
 		defer stop(srv)
 
-		var res *http.Response
-		err := test.Await(5*time.Second, func() bool {
-			healthRes, err := healthcheck(srv)
-			res = healthRes
+		require.Eventually(t, func() bool {
+			_, err := healthcheck(srv)
 			return err == nil
-		})
+		}, 5*time.Second, 100*time.Millisecond)
+
+		res, err := healthcheck(srv)
 		require.NoError(t, err)
 		gotBody := healthResponse{}
 		require.Equal(t, http.StatusOK, res.StatusCode)

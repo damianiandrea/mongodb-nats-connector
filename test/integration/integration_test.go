@@ -19,8 +19,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
-
-	"github.com/damianiandrea/mongodb-nats-connector/test"
 )
 
 var (
@@ -53,13 +51,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("could not create nats jetstream context: %v", err)
 	}
 
-	err = test.Await(5*time.Second, func() bool {
-		response, err := http.Get(fmt.Sprintf("%s/healthz", connectorUrl))
-		return err == nil && response.StatusCode == http.StatusOK
-	})
-	if err != nil {
-		log.Fatalf("time exhausted: could not reach connector: %v", err)
-	}
+	mustWaitForConnector(10 * time.Second)
 
 	code := m.Run()
 
@@ -68,6 +60,22 @@ func TestMain(m *testing.M) {
 	}
 	natsConn.Close()
 	os.Exit(code)
+}
+
+func mustWaitForConnector(time time.Duration) {
+	timeout, cancel := context.WithTimeout(context.Background(), time)
+	defer cancel()
+	for {
+		select {
+		case <-timeout.Done():
+			log.Fatal("time exhausted: could not reach connector")
+		default:
+			response, err := http.Get(fmt.Sprintf("%s/healthz", connectorUrl))
+			if err == nil && response.StatusCode == http.StatusOK {
+				return
+			}
+		}
+	}
 }
 
 func TestHealthzEndpoint(t *testing.T) {
@@ -139,7 +147,7 @@ func testMongoInsertIsPublishedToNats(t *testing.T, testColl string) {
 	require.NoError(t, err)
 
 	event := &changeEvent{}
-	err = test.Await(5*time.Second, func() bool {
+	require.Eventually(t, func() bool {
 		msg, err := sub.NextMsg(5 * time.Second)
 		if err != nil {
 			return false
@@ -148,15 +156,13 @@ func testMongoInsertIsPublishedToNats(t *testing.T, testColl string) {
 			return false
 		}
 		return event.Id.Data != "" && event.OperationType == "insert" && event.FullDocument.Message == "hi"
-	})
-	require.NoError(t, err)
+	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection(testColl)
-	err = test.Await(5*time.Second, func() bool {
+	require.Eventually(t, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
-	})
-	require.NoError(t, err)
+	}, 5*time.Second, 100*time.Millisecond)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
@@ -195,7 +201,7 @@ func testMongoUpdateIsPublishedToNats(t *testing.T, testColl string) {
 	require.NoError(t, err)
 
 	event := &changeEvent{}
-	err = test.Await(5*time.Second, func() bool {
+	require.Eventually(t, func() bool {
 		msg, err := sub.NextMsg(5 * time.Second)
 		if err != nil {
 			return false
@@ -204,15 +210,13 @@ func testMongoUpdateIsPublishedToNats(t *testing.T, testColl string) {
 			return false
 		}
 		return event.Id.Data != "" && event.OperationType == "update" && event.FullDocument.Message == "bye"
-	})
-	require.NoError(t, err)
+	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection(testColl)
-	err = test.Await(5*time.Second, func() bool {
+	require.Eventually(t, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
-	})
-	require.NoError(t, err)
+	}, 5*time.Second, 100*time.Millisecond)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
@@ -250,7 +254,7 @@ func testMongoDeleteIsPublishedToNats(t *testing.T, testColl string) {
 	require.NoError(t, err)
 
 	event := &changeEvent{}
-	err = test.Await(5*time.Second, func() bool {
+	require.Eventually(t, func() bool {
 		msg, err := sub.NextMsg(5 * time.Second)
 		if err != nil {
 			return false
@@ -259,15 +263,13 @@ func testMongoDeleteIsPublishedToNats(t *testing.T, testColl string) {
 			return false
 		}
 		return event.Id.Data != "" && event.OperationType == "delete" && event.FullDocumentBeforeChange.Message == "hi"
-	})
-	require.NoError(t, err)
+	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
 	tokensColl1 := tokensDb.Collection(testColl)
-	err = test.Await(5*time.Second, func() bool {
+	require.Eventually(t, func() bool {
 		return lastResumeTokenIsUpdated(tokensColl1, event)
-	})
-	require.NoError(t, err)
+	}, 5*time.Second, 100*time.Millisecond)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
