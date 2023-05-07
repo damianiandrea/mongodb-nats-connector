@@ -84,9 +84,12 @@ services:
     container_name: connector
     networks:
       - connector-net
+    volumes:
+      - "./example:/root/config"
     ports:
       - "8080:8080"
     environment:
+      - CONFIG_FILE=/root/config/connector.yaml
       - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=mongodb-nats-connector
       - NATS_URL=nats://nats1:4222
       - SERVER_ADDR=:8080

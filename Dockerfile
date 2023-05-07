@@ -10,5 +10,4 @@ RUN go build -o /go/bin/connector ./cmd/connector
 FROM alpine:latest
 WORKDIR /root/
 COPY --from=build /go/bin/connector ./
-COPY ./connector.yaml ./
 CMD ./connector
