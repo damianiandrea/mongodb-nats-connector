@@ -123,7 +123,8 @@ There are a few possible scenarios:
 In all the aforementioned cases the connector will resume from the previous change event token and try again.
 While in the first two cases there will be no issues, in the third case, however, a duplicate message is to be expected.
 For this reason the connector uses the resume token as a NATS message id, so that NATS consumers can use it as a way
-to discard duplicates.
+to discard duplicates, more info 
+[here](https://docs.nats.io/using-nats/developer/develop_jetstream/model_deep_dive#message-deduplication).
 
 ## Customization
 
