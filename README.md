@@ -14,7 +14,7 @@ existing solution, so I decided to build my own.
 The quickest way to start is to clone the repository and use the following command to run a MongoDB replica set, 
 a NATS cluster with JetStream enabled, and the connector itself:
 
-```bash
+```
 docker-compose up --build -d mongo1 mongo2 mongo3 nats1 nats2 nats3 connector
 ```
 
@@ -28,6 +28,84 @@ and `coll2`, if they do not already exist. These are the collections where the r
 respectively. Depending on the operation type, a different stream subject will be used, for example inserting a document
 in `coll1` will result in a message being published on `COLL1.insert`, for updates it will be `COLL1.update`, and for 
 deletions `COLL1.delete`.
+
+Check that the connector is up and running:
+
+```
+curl -i localhost:8080/healthz
+```
+
+If it is running correctly you should get the following response:
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Date: Tue, 09 May 2023 12:01:54 GMT
+Content-Length: 78
+
+{"status":"UP","components":{"mongo":{"status":"UP"},"nats":{"status":"UP"}}}
+```
+
+Now let's see it in action by inserting a new document in one of the watched MongoDB collections:
+
+```
+docker exec -it mongo1 mongosh
+```
+
+Switch to our example database `test-connector`:
+
+```
+use test-connector
+```
+
+Add a new record to our example collection `coll1`:
+
+```
+db.coll1.insertOne({"message": "hi"})
+```
+
+Now look at the connector's logs:
+
+```
+docker-compose logs -f connector
+```
+
+You should see something like the following:
+
+```
+connector  | {"time":"2023-05-09T12:59:38.0312255Z","level":"DEBUG","msg":"received change event","changeEvent":"{\"_id\":{\"_data\":\"82645A43BA000000012B022C0100296E5A100441C14B6
+03DF24D51BCD95A16D118E42F46645F69640064645A43BA84439E9C4F4144EB0004\"},\"operationType\":\"insert\",\"clusterTime\":{\"$timestamp\":{\"t\":1683637178,\"i\":1}},\"wallTime\":{\"$dat
+e\":\"2023-05-09T12:59:38.017Z\"},\"fullDocument\":{\"_id\":{\"$oid\":\"645a43ba84439e9c4f4144eb\"},\"message\":\"hi\"},\"ns\":{\"db\":\"test-connector\",\"coll\":\"coll1\"},\"docu
+mentKey\":{\"_id\":{\"$oid\":\"645a43ba84439e9c4f4144eb\"}}}"}
+
+connector  | {"time":"2023-05-09T12:59:38.0350466Z","level":"DEBUG","msg":"published message","subj":"COLL1.insert","data":"{\"_id\":{\"_data\":\"82645A43BA000000012B022C0100296E5A
+100441C14B603DF24D51BCD95A16D118E42F46645F69640064645A43BA84439E9C4F4144EB0004\"},\"operationType\":\"insert\",\"clusterTime\":{\"$timestamp\":{\"t\":1683637178,\"i\":1}},\"wallTim
+e\":{\"$date\":\"2023-05-09T12:59:38.017Z\"},\"fullDocument\":{\"_id\":{\"$oid\":\"645a43ba84439e9c4f4144eb\"},\"message\":\"hi\"},\"ns\":{\"db\":\"test-connector\",\"coll\":\"coll
+1\"},\"documentKey\":{\"_id\":{\"$oid\":\"645a43ba84439e9c4f4144eb\"}}}"}
+```
+
+As you can see the change event was received and the connector published a message on NATS JetStream. 
+Let's view our example stream `COLL1` with NATS CLI:
+
+```
+nats stream view COLL1
+```
+
+You should see something like this:
+
+```
+[1] Subject: COLL1.insert Received: 2023-05-09T14:59:38+02:00
+
+  Nats-Msg-Id: 82645A43BA000000012B022C0100296E5A100441C14B603DF24D51BCD95A16D118E42F46645F69640064645A43BA84439E9C4F4144EB0004
+
+{"_id":{"_data":"82645A43BA000000012B022C0100296E5A100441C14B603DF24D51BCD95A16D118E42F46645F69640064645A43BA84439E9C4F4144EB0004"},"operationType":"insert","clusterTime":{"$timest
+amp":{"t":1683637178,"i":1}},"wallTime":{"$date":"2023-05-09T12:59:38.017Z"},"fullDocument":{"_id":{"$oid":"645a43ba84439e9c4f4144eb"},"message":"hi"},"ns":{"db":"test-connector","
+coll":"coll1"},"documentKey":{"_id":{"$oid":"645a43ba84439e9c4f4144eb"}}}
+
+15:00:14 Reached apparent end of data
+```
+
+That's it!
 
 ## Resume Tokens
 
