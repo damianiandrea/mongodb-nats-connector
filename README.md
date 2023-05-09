@@ -1,6 +1,8 @@
 # MongoDB-NATS Connector
 
+![License](https://img.shields.io/github/license/damianiandrea/mongodb-nats-connector)
 ![CI](https://github.com/damianiandrea/mongodb-nats-connector/actions/workflows/ci.yml/badge.svg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/damianiandrea/mongodb-nats-connector)](https://goreportcard.com/report/github.com/damianiandrea/mongodb-nats-connector)
 
 A connector that uses MongoDB's change streams to capture data changes and publishes those changes to NATS JetStream.
 
