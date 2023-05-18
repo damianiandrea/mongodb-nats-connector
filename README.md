@@ -185,4 +185,5 @@ Most of the time you will only need to set `MONGO_URI` and `NATS_URL`, for the o
 ### External Resources
 
 * [Blog Post](https://nats.io/blog/mongodb-nats-connector/)
-* [Other Connectors](https://nats.io/download/#connectors-and-utilities)
+* [Other MongoDB Connectors](https://www.mongodb.com/connectors)
+* [Other NATS Connectors](https://nats.io/download/#connectors-and-utilities)
