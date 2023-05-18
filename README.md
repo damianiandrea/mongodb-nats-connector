@@ -181,3 +181,8 @@ Default value is `info`.
 * `SERVER_ADDR`, the connector's server address. Default value is `127.0.0.1:8080`.
 
 Most of the time you will only need to set `MONGO_URI` and `NATS_URL`, for the other variables the defaults will suffice.
+
+### External Resources
+
+* [Blog Post](https://nats.io/blog/mongodb-nats-connector/)
+* [Other Connectors](https://nats.io/download/#connectors-and-utilities)
