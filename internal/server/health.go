@@ -37,7 +37,7 @@ type health string
 
 const (
 	UP   health = "UP"
-	DOWN        = "DOWN"
+	DOWN health = "DOWN"
 )
 
 type monitoredComponents struct {
