@@ -26,21 +26,33 @@ const (
 )
 
 var (
-	ErrDbNameMissing          = errors.New("invalid config: `dbName` is missing")
-	ErrCollNameMissing        = errors.New("invalid config: `collName` is missing")
-	ErrInvalidCollSizeInBytes = errors.New("invalid config: `collSizeInBytes` must be greater than 0")
-	ErrInvalidDbAndCollNames  = errors.New("invalid config: `dbName` and `tokensDbName` cannot be the same if `collName` and `tokensCollName` are the same")
+	ErrDbNameMissing          = errors.New("invalid option: `dbName` is missing")
+	ErrCollNameMissing        = errors.New("invalid option: `collName` is missing")
+	ErrInvalidCollSizeInBytes = errors.New("invalid option: `collSizeInBytes` must be greater than 0")
+	ErrInvalidDbAndCollNames  = errors.New("invalid option: `dbName` and `tokensDbName` cannot be the same if `collName` and `tokensCollName` are the same")
 )
 
+// The Connector type represents a connector between MongoDB and NATS.
 type Connector struct {
+
+	// options represents the Connector's options.
 	options Options
 
-	logger      *slog.Logger
+	// logger represents the Connector's logger.
+	logger *slog.Logger
+
+	// mongoClient represents the MongoDB client used by the Connector to connect to MongoDB.
 	mongoClient *mongo.Client
-	natsClient  *nats.Client
-	server      *server.Server
+
+	// natsClient represents the NATS client used by the Connector to connect to NATS.
+	natsClient *nats.Client
+
+	// server represents the HTTP server used by the Connector.
+	server *server.Server
 }
 
+// New creates a new Connector.
+// The given options will override its default configuration.
 func New(opts ...Option) (*Connector, error) {
 	c := &Connector{
 		options: getDefaultOptions(),
@@ -85,6 +97,16 @@ func New(opts ...Option) (*Connector, error) {
 	return c, nil
 }
 
+// Run runs the Connector.
+// It performs the following operations:
+//
+//	For each configured collection to be watched:
+//		- It creates the given collection on MongoDB, if it does not already exist
+//		- It creates the resume tokens collection for the given collection on MongoDB, if it does not already exist
+//		- It creates the given stream on NATS, if it does not already exist
+//		- Spins up a goroutine to watch the given collection
+//	It runs an HTTP server in its own goroutine.
+//	It runs another goroutine that will perform graceful shutdown once the Connector's context is cancelled.
 func (c *Connector) Run() error {
 	defer c.cleanup()
 
@@ -162,13 +184,27 @@ func (c *Connector) closeClient(closer io.Closer) {
 	}
 }
 
+// Options represents the possible options to be applied to a Connector.
 type Options struct {
-	logLevel    slog.Level
-	mongoUri    string
-	natsUrl     string
-	ctx         context.Context
-	stop        context.CancelFunc
-	serverAddr  string
+
+	// logLevel represents the Connector's log level.
+	// Can be set to 'info', 'debug', 'warn', or 'error'.
+	logLevel slog.Level
+
+	// mongoUri represents the Connector's MongoDB URI.
+	mongoUri string
+
+	// natsUrl represents the Connector's NATS URL.
+	natsUrl string
+
+	// ctx represents the Connector's context.
+	ctx  context.Context
+	stop context.CancelFunc
+
+	// serverAddr represents the Connector's HTTP server address.
+	serverAddr string
+
+	// collections represents a slice containing the collections to be watched, with their own configuration.
 	collections []*collection
 }
 
@@ -180,8 +216,10 @@ func getDefaultOptions() Options {
 	}
 }
 
+// Option is used to configure the Connector.
 type Option func(*Options) error
 
+// WithLogLevel sets the Connector's log level.
 func WithLogLevel(logLevel string) Option {
 	return func(o *Options) error {
 		switch strings.ToLower(logLevel) {
@@ -198,6 +236,7 @@ func WithLogLevel(logLevel string) Option {
 	}
 }
 
+// WithMongoUri sets the Connector's MongoDB URI.
 func WithMongoUri(mongoUri string) Option {
 	return func(o *Options) error {
 		if mongoUri != "" {
@@ -207,6 +246,7 @@ func WithMongoUri(mongoUri string) Option {
 	}
 }
 
+// WithNatsUrl sets the Connector's NATS URL.
 func WithNatsUrl(natsUrl string) Option {
 	return func(o *Options) error {
 		if natsUrl != "" {
@@ -216,6 +256,7 @@ func WithNatsUrl(natsUrl string) Option {
 	}
 }
 
+// WithContext sets the Connector's context.
 func WithContext(ctx context.Context) Option {
 	return func(o *Options) error {
 		if ctx != nil {
@@ -225,6 +266,7 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
+// WithServerAddr sets the Connector's HTTP server address.
 func WithServerAddr(serverAddr string) Option {
 	return func(o *Options) error {
 		if serverAddr != "" {
@@ -234,6 +276,7 @@ func WithServerAddr(serverAddr string) Option {
 	}
 }
 
+// WithCollection configures a collection to be watched by the Connector, with the given options.
 func WithCollection(dbName, collName string, opts ...CollectionOption) Option {
 	return func(o *Options) error {
 		if dbName == "" {
@@ -277,8 +320,10 @@ type collection struct {
 	streamName                   string
 }
 
+// CollectionOption is used to configure a MongoDB collection to be watched.
 type CollectionOption func(*collection) error
 
+// WithChangeStreamPreAndPostImages enables MongoDB's changeStreamPreAndPostImages configuration.
 func WithChangeStreamPreAndPostImages() CollectionOption {
 	return func(c *collection) error {
 		c.changeStreamPreAndPostImages = true
@@ -286,6 +331,8 @@ func WithChangeStreamPreAndPostImages() CollectionOption {
 	}
 }
 
+// WithTokensDbName sets the name of the MongoDB database that will store the resume tokens collection for the
+// collection to be watched.
 func WithTokensDbName(tokensDbName string) CollectionOption {
 	return func(c *collection) error {
 		if tokensDbName != "" {
@@ -295,6 +342,8 @@ func WithTokensDbName(tokensDbName string) CollectionOption {
 	}
 }
 
+// WithTokensCollName sets the name of the MongoDB collection that will store the resume tokens for the collection to
+// be watched.
 func WithTokensCollName(tokensCollName string) CollectionOption {
 	return func(c *collection) error {
 		if tokensCollName != "" {
@@ -304,6 +353,8 @@ func WithTokensCollName(tokensCollName string) CollectionOption {
 	}
 }
 
+// WithTokensCollCapped sets the MongoDB collection that will store the resume tokens for the collection to be watched
+// as capped, with the given size.
 func WithTokensCollCapped(collSizeInBytes int64) CollectionOption {
 	return func(c *collection) error {
 		if collSizeInBytes <= 0 {
@@ -315,6 +366,8 @@ func WithTokensCollCapped(collSizeInBytes int64) CollectionOption {
 	}
 }
 
+// WithStreamName sets the NATS stream name, where the MongoDB change events will be published for the collection to be
+// watched.
 func WithStreamName(streamName string) CollectionOption {
 	return func(c *collection) error {
 		if streamName != "" {
