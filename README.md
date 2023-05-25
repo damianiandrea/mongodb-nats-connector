@@ -182,6 +182,55 @@ Default value is `info`.
 
 Most of the time you will only need to set `MONGO_URI` and `NATS_URL`, for the other variables the defaults will suffice.
 
+### Embedded Connector
+
+The connector can be embedded within your go application! All you need to do is run
+
+```
+go get github.com/damianiandrea/mongodb-nats-connector/pkg/connector
+```
+
+and use it in your go code like this:
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	"github.com/damianiandrea/mongodb-nats-connector/pkg/connector"
+)
+
+func main() {
+	c, err := connector.New(
+		connector.WithLogLevel("debug"),
+		connector.WithMongoUri("..."), // your MongoDB URI
+		connector.WithNatsUrl("..."), // your NATS URL
+		connector.WithContext(context.Background()),
+		connector.WithServerAddr(":9000"),
+		connector.WithCollection(
+			"test-connector",
+			"coll1",
+			connector.WithChangeStreamPreAndPostImages(),
+			connector.WithTokensDbName("resume-tokens"),
+			connector.WithTokensCollName("coll1"),
+			connector.WithTokensCollCapped(4096),
+			connector.WithStreamName("COLL1"),
+		),
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Fatal(c.Run())
+}
+```
+
+The `connector.New()` method accepts functional options that map to the same properties found in the yaml configuration
+file.
+
 ### External Resources
 
 * [Blog Post](https://nats.io/blog/mongodb-nats-connector/)
