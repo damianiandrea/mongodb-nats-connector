@@ -104,10 +104,14 @@ type CreateCollectionOptions struct {
 }
 
 func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error {
-	for {
-		resumeTokensDb := c.client.Database(opts.ResumeTokensDbName)
-		resumeTokensColl := resumeTokensDb.Collection(opts.ResumeTokensCollName)
 
+	resumeTokensDb := c.client.Database(opts.ResumeTokensDbName)
+	resumeTokensColl := resumeTokensDb.Collection(opts.ResumeTokensCollName)
+
+	watchedDb := c.client.Database(opts.WatchedDbName)
+	watchedColl := watchedDb.Collection(opts.WatchedCollName)
+
+	for {
 		findOneOpts := options.FindOne()
 		if opts.ResumeTokensCollCapped {
 			// use natural sort for capped collections to get the last inserted resume token
@@ -116,6 +120,7 @@ func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptio
 			// cannot rely on natural sort for uncapped collections, sort by id instead
 			findOneOpts.SetSort(bson.D{{Key: "_id", Value: -1}})
 		}
+
 		lastResumeToken := &resumeToken{}
 		err := resumeTokensColl.FindOne(ctx, bson.D{}, findOneOpts).Decode(lastResumeToken)
 		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
@@ -130,9 +135,6 @@ func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptio
 			c.logger.Debug("resuming after token", "token", lastResumeToken.Value)
 			changeStreamOpts.SetResumeAfter(bson.D{{Key: "_data", Value: lastResumeToken.Value}})
 		}
-
-		watchedDb := c.client.Database(opts.WatchedDbName)
-		watchedColl := watchedDb.Collection(opts.WatchedCollName)
 
 		cs, err := watchedColl.Watch(ctx, mongo.Pipeline{}, changeStreamOpts)
 		if err != nil {
