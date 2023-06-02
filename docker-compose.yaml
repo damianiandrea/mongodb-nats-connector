@@ -96,14 +96,14 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-  connector-integration-test:
+  connector-it:
     depends_on:
       - connector
     build:
       context: .
       dockerfile: Dockerfile-it
-    image: connector-integration-test:latest
-    container_name: connector-integration-test
+    image: connector-it:latest
+    container_name: connector-it
     networks:
       - connector-net
     environment:
