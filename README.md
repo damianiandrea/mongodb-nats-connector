@@ -15,7 +15,7 @@ The quickest way to start is to clone the repository and use the following comma
 a NATS cluster with JetStream enabled, and the connector itself:
 
 ```
-docker-compose up --build -d mongo1 mongo2 mongo3 nats1 nats2 nats3 connector
+make run
 ```
 
 The connector will pick up the example `connector.yaml` configuration file, and it will perform the following actions:
@@ -105,7 +105,13 @@ coll":"coll1"},"documentKey":{"_id":{"$oid":"645a43ba84439e9c4f4144eb"}}}
 15:00:14 Reached apparent end of data
 ```
 
-That's it!
+That's it! The stream `COLL1` received the message under the `insert` subject, as expected.
+
+You can try more operations, such as updating or deleting documents, and when you're done you can stop all the containers with:
+
+```
+make stop
+```
 
 ## Resume Tokens
 
