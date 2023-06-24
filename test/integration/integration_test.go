@@ -159,16 +159,16 @@ func testMongoInsertIsPublishedToNats(t *testing.T, testColl string) {
 	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
-	tokensColl1 := tokensDb.Collection(testColl)
+	tokensColl := tokensDb.Collection(testColl)
 	require.Eventually(t, func() bool {
-		return lastResumeTokenIsUpdated(tokensColl1, event)
+		return lastResumeTokenIsUpdated(tokensColl, event)
 	}, 5*time.Second, 100*time.Millisecond)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
 		_, err := coll.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
-		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
+		_, err = tokensColl.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
 		require.NoError(t, natsJs.PurgeStream(testStream))
 	})
@@ -184,15 +184,15 @@ func TestMongoUpdateIsPublishedToNatsUsingCappedResumeTokenColl(t *testing.T) {
 
 func testMongoUpdateIsPublishedToNats(t *testing.T, testColl string) {
 	db := mongoClient.Database("test-connector")
-	coll1 := db.Collection(testColl)
+	coll := db.Collection(testColl)
 
-	result, err := coll1.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
+	result, err := coll.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
 	require.NoError(t, err)
 	require.NotNil(t, result.InsertedID)
 
 	filter := bson.D{{Key: "_id", Value: result.InsertedID}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "message", Value: "bye"}}}}
-	_, err = coll1.UpdateOne(context.Background(), filter, update)
+	_, err = coll.UpdateOne(context.Background(), filter, update)
 	require.NoError(t, err)
 
 	testStream := strings.ToUpper(testColl)
@@ -213,16 +213,16 @@ func testMongoUpdateIsPublishedToNats(t *testing.T, testColl string) {
 	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
-	tokensColl1 := tokensDb.Collection(testColl)
+	tokensColl := tokensDb.Collection(testColl)
 	require.Eventually(t, func() bool {
-		return lastResumeTokenIsUpdated(tokensColl1, event)
+		return lastResumeTokenIsUpdated(tokensColl, event)
 	}, 5*time.Second, 100*time.Millisecond)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
-		_, err := coll1.DeleteMany(context.Background(), bson.D{})
+		_, err := coll.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
-		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
+		_, err = tokensColl.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
 		require.NoError(t, natsJs.PurgeStream(testStream))
 	})
@@ -238,14 +238,14 @@ func TestMongoDeleteIsPublishedToNatsUsingCappedResumeTokenColl(t *testing.T) {
 
 func testMongoDeleteIsPublishedToNats(t *testing.T, testColl string) {
 	db := mongoClient.Database("test-connector")
-	coll1 := db.Collection(testColl)
+	coll := db.Collection(testColl)
 
-	result, err := coll1.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
+	result, err := coll.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
 	require.NoError(t, err)
 	require.NotNil(t, result.InsertedID)
 
 	filter := bson.D{{Key: "_id", Value: result.InsertedID}}
-	_, err = coll1.DeleteOne(context.Background(), filter)
+	_, err = coll.DeleteOne(context.Background(), filter)
 	require.NoError(t, err)
 
 	testStream := strings.ToUpper(testColl)
@@ -266,16 +266,16 @@ func testMongoDeleteIsPublishedToNats(t *testing.T, testColl string) {
 	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
-	tokensColl1 := tokensDb.Collection(testColl)
+	tokensColl := tokensDb.Collection(testColl)
 	require.Eventually(t, func() bool {
-		return lastResumeTokenIsUpdated(tokensColl1, event)
+		return lastResumeTokenIsUpdated(tokensColl, event)
 	}, 5*time.Second, 100*time.Millisecond)
 
 	t.Cleanup(func() {
 		require.NoError(t, sub.Unsubscribe())
-		_, err := coll1.DeleteMany(context.Background(), bson.D{})
+		_, err := coll.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
-		_, err = tokensColl1.DeleteMany(context.Background(), bson.D{})
+		_, err = tokensColl.DeleteMany(context.Background(), bson.D{})
 		require.NoError(t, err)
 		require.NoError(t, natsJs.PurgeStream(testStream))
 	})
