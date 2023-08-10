@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 RUN go build -o /go/bin/connector ./cmd/connector
 
-FROM alpine:latest
+FROM alpine:3.18.3
 WORKDIR /root/
 COPY --from=build /go/bin/connector ./
 CMD ./connector
