@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
-	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/damianiandrea/mongodb-nats-connector/internal/mongo"
@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultLogLevel                     = slog.InfoLevel
+	defaultLogLevel                     = slog.LevelInfo
 	defaultChangeStreamPreAndPostImages = false
 	defaultTokensDbName                 = "resume-tokens"
 	defaultTokensCollCapped             = false
@@ -65,7 +65,7 @@ func New(opts ...Option) (*Connector, error) {
 	}
 
 	loggerOpts := &slog.HandlerOptions{Level: c.options.logLevel}
-	c.logger = slog.New(loggerOpts.NewJSONHandler(os.Stdout))
+	c.logger = slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
 
 	if mongoClient, err := mongo.NewClient(
 		mongo.WithMongoUri(c.options.mongoUri),
@@ -224,13 +224,13 @@ func WithLogLevel(logLevel string) Option {
 	return func(o *Options) error {
 		switch strings.ToLower(logLevel) {
 		case "debug":
-			o.logLevel = slog.DebugLevel
+			o.logLevel = slog.LevelDebug
 		case "warn":
-			o.logLevel = slog.WarnLevel
+			o.logLevel = slog.LevelWarn
 		case "error":
-			o.logLevel = slog.ErrorLevel
+			o.logLevel = slog.LevelError
 		case "info":
-			o.logLevel = slog.InfoLevel
+			o.logLevel = slog.LevelInfo
 		}
 		return nil
 	}

@@ -2,10 +2,9 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/http"
-
-	"golang.org/x/exp/slog"
 )
 
 const defaultAddr = "127.0.0.1:8080"

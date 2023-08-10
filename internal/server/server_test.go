@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slog"
 )
 
 func TestNew(t *testing.T) {
@@ -28,7 +28,7 @@ func TestNew(t *testing.T) {
 		ctx := context.TODO()
 		cmpUp := &testComponent{name: "cmp_up", err: nil}
 		cmpDown := &testComponent{name: "cmp_down", err: errors.New("not reachable")}
-		logger := slog.New(slog.NewJSONHandler(os.Stdout))
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 		srv := New(
 			WithAddr(addr),

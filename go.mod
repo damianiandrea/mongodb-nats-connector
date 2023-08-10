@@ -1,6 +1,6 @@
 module github.com/damianiandrea/mongodb-nats-connector
 
-go 1.20
+go 1.21
 
 require (
 	github.com/nats-io/nats-server/v2 v2.9.8

@@ -2,6 +2,7 @@ package nats
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 	natstest "github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slog"
 )
 
 func TestNewClient(t *testing.T) {
@@ -34,7 +34,7 @@ func TestNewClient(t *testing.T) {
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
 		url := nats.DefaultURL
-		logger := slog.New(slog.NewJSONHandler(os.Stdout))
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 		client, err := NewClient(
 			WithNatsUrl(url),
