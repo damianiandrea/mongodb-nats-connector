@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -36,13 +37,18 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		opt(c)
 	}
 
+	parsedUri, err := url.Parse(c.uri)
+	if err != nil {
+		return nil, fmt.Errorf("invalid mongodb uri: %v", err)
+	}
+
 	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(c.uri))
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to mongodb: %v", err)
 	}
 	c.client = client
 
-	c.logger.Info("connected to mongodb", "uri", c.uri)
+	c.logger.Info("connected to mongodb", "uri", parsedUri.Redacted())
 	return c, nil
 }
 
