@@ -42,10 +42,10 @@ type Connector struct {
 	logger *slog.Logger
 
 	// mongoClient represents the MongoDB client used by the Connector to connect to MongoDB.
-	mongoClient *mongo.Client
+	mongoClient mongo.Client
 
 	// natsClient represents the NATS client used by the Connector to connect to NATS.
-	natsClient *nats.Client
+	natsClient nats.Client
 
 	// server represents the HTTP server used by the Connector.
 	server *server.Server
@@ -67,7 +67,7 @@ func New(opts ...Option) (*Connector, error) {
 	loggerOpts := &slog.HandlerOptions{Level: c.options.logLevel}
 	c.logger = slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
 
-	if mongoClient, err := mongo.NewClient(
+	if mongoClient, err := mongo.NewDefaultClient(
 		mongo.WithMongoUri(c.options.mongoUri),
 		mongo.WithLogger(c.logger),
 	); err != nil {

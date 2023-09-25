@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 
@@ -11,6 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+
+	"github.com/damianiandrea/mongodb-nats-connector/internal/server"
 )
 
 const (
@@ -18,7 +21,37 @@ const (
 	defaultName = "mongo"
 )
 
-type Client struct {
+type Client interface {
+	server.NamedMonitor
+	io.Closer
+
+	CreateCollection(ctx context.Context, opts *CreateCollectionOptions) error
+	WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error
+}
+
+type CreateCollectionOptions struct {
+	DbName                       string
+	CollName                     string
+	Capped                       bool
+	SizeInBytes                  int64
+	ChangeStreamPreAndPostImages bool
+}
+
+type ChangeEventHandler func(ctx context.Context, subj, msgId string, data []byte) error
+
+type WatchCollectionOptions struct {
+	WatchedDbName          string
+	WatchedCollName        string
+	ResumeTokensDbName     string
+	ResumeTokensCollName   string
+	ResumeTokensCollCapped bool
+	StreamName             string
+	ChangeEventHandler     ChangeEventHandler
+}
+
+var _ Client = &DefaultClient{}
+
+type DefaultClient struct {
 	uri    string
 	name   string
 	logger *slog.Logger
@@ -26,8 +59,8 @@ type Client struct {
 	client *mongo.Client
 }
 
-func NewClient(opts ...ClientOption) (*Client, error) {
-	c := &Client{
+func NewDefaultClient(opts ...ClientOption) (*DefaultClient, error) {
+	c := &DefaultClient{
 		uri:    defaultUri,
 		name:   defaultName,
 		logger: slog.Default(),
@@ -52,25 +85,25 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Name() string {
+func (c *DefaultClient) Name() string {
 	return c.name
 }
 
-func (c *Client) Monitor(ctx context.Context) error {
+func (c *DefaultClient) Monitor(ctx context.Context) error {
 	if err := c.client.Ping(ctx, readpref.Primary()); err != nil {
 		return fmt.Errorf("could not reach mongodb: %v", err)
 	}
 	return nil
 }
 
-func (c *Client) Close() error {
+func (c *DefaultClient) Close() error {
 	if err := c.client.Disconnect(context.Background()); err != nil {
 		return fmt.Errorf("could not close mongodb client: %v", err)
 	}
 	return nil
 }
 
-func (c *Client) CreateCollection(ctx context.Context, opts *CreateCollectionOptions) error {
+func (c *DefaultClient) CreateCollection(ctx context.Context, opts *CreateCollectionOptions) error {
 	db := c.client.Database(opts.DbName)
 	collNames, err := db.ListCollectionNames(ctx, bson.D{{Key: "name", Value: opts.CollName}})
 	if err != nil {
@@ -101,15 +134,7 @@ func (c *Client) CreateCollection(ctx context.Context, opts *CreateCollectionOpt
 	return nil
 }
 
-type CreateCollectionOptions struct {
-	DbName                       string
-	CollName                     string
-	Capped                       bool
-	SizeInBytes                  int64
-	ChangeStreamPreAndPostImages bool
-}
-
-func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error {
+func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollectionOptions) error {
 
 	resumeTokensDb := c.client.Database(opts.ResumeTokensDbName)
 	resumeTokensColl := resumeTokensDb.Collection(opts.ResumeTokensCollName)
@@ -183,26 +208,14 @@ func (c *Client) WatchCollection(ctx context.Context, opts *WatchCollectionOptio
 	}
 }
 
-type ChangeEventHandler func(ctx context.Context, subj, msgId string, data []byte) error
-
-type WatchCollectionOptions struct {
-	WatchedDbName          string
-	WatchedCollName        string
-	ResumeTokensDbName     string
-	ResumeTokensCollName   string
-	ResumeTokensCollCapped bool
-	StreamName             string
-	ChangeEventHandler     ChangeEventHandler
-}
-
 type resumeToken struct {
 	Value string `bson:"value"`
 }
 
-type ClientOption func(*Client)
+type ClientOption func(*DefaultClient)
 
 func WithMongoUri(uri string) ClientOption {
-	return func(c *Client) {
+	return func(c *DefaultClient) {
 		if uri != "" {
 			c.uri = uri
 		}
@@ -210,7 +223,7 @@ func WithMongoUri(uri string) ClientOption {
 }
 
 func WithLogger(logger *slog.Logger) ClientOption {
-	return func(c *Client) {
+	return func(c *DefaultClient) {
 		if logger != nil {
 			c.logger = logger
 		}

@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 
 	"github.com/nats-io/nats.go"
+
+	"github.com/damianiandrea/mongodb-nats-connector/internal/server"
 )
 
 const (
@@ -18,7 +21,27 @@ var (
 	ErrClientDisconnected = errors.New("could not reach nats: connection closed")
 )
 
-type Client struct {
+type Client interface {
+	server.NamedMonitor
+	io.Closer
+
+	AddStream(ctx context.Context, opts *AddStreamOptions) error
+	Publish(ctx context.Context, opts *PublishOptions) error
+}
+
+type AddStreamOptions struct {
+	StreamName string
+}
+
+type PublishOptions struct {
+	Subj  string
+	MsgId string
+	Data  []byte
+}
+
+var _ Client = &DefaultClient{}
+
+type DefaultClient struct {
 	url    string
 	name   string
 	logger *slog.Logger
@@ -27,8 +50,8 @@ type Client struct {
 	js   nats.JetStreamContext
 }
 
-func NewClient(opts ...ClientOption) (*Client, error) {
-	c := &Client{
+func NewClient(opts ...ClientOption) (*DefaultClient, error) {
+	c := &DefaultClient{
 		url:    defaultUrl,
 		name:   defaultName,
 		logger: slog.Default(),
@@ -61,23 +84,23 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Name() string {
+func (c *DefaultClient) Name() string {
 	return c.name
 }
 
-func (c *Client) Monitor(_ context.Context) error {
+func (c *DefaultClient) Monitor(_ context.Context) error {
 	if closed := c.conn.IsClosed(); closed {
 		return ErrClientDisconnected
 	}
 	return nil
 }
 
-func (c *Client) Close() error {
+func (c *DefaultClient) Close() error {
 	c.conn.Close()
 	return nil
 }
 
-func (c *Client) AddStream(_ context.Context, opts *AddStreamOptions) error {
+func (c *DefaultClient) AddStream(_ context.Context, opts *AddStreamOptions) error {
 	_, err := c.js.AddStream(&nats.StreamConfig{
 		Name:     opts.StreamName,
 		Subjects: []string{fmt.Sprintf("%s.*", opts.StreamName)},
@@ -90,11 +113,7 @@ func (c *Client) AddStream(_ context.Context, opts *AddStreamOptions) error {
 	return nil
 }
 
-type AddStreamOptions struct {
-	StreamName string
-}
-
-func (c *Client) Publish(_ context.Context, opts *PublishOptions) error {
+func (c *DefaultClient) Publish(_ context.Context, opts *PublishOptions) error {
 	if _, err := c.js.Publish(opts.Subj, opts.Data, nats.MsgId(opts.MsgId)); err != nil {
 		return fmt.Errorf("could not publish message %v to nats stream %v: %v", opts.Data, opts.Subj, err)
 	}
@@ -102,16 +121,10 @@ func (c *Client) Publish(_ context.Context, opts *PublishOptions) error {
 	return nil
 }
 
-type PublishOptions struct {
-	Subj  string
-	MsgId string
-	Data  []byte
-}
-
-type ClientOption func(*Client)
+type ClientOption func(*DefaultClient)
 
 func WithNatsUrl(url string) ClientOption {
-	return func(c *Client) {
+	return func(c *DefaultClient) {
 		if url != "" {
 			c.url = url
 		}
@@ -119,7 +132,7 @@ func WithNatsUrl(url string) ClientOption {
 }
 
 func WithLogger(logger *slog.Logger) ClientOption {
-	return func(c *Client) {
+	return func(c *DefaultClient) {
 		if logger != nil {
 			c.logger = logger
 		}
