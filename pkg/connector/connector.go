@@ -41,12 +41,6 @@ type Connector struct {
 	// logger represents the Connector's logger.
 	logger *slog.Logger
 
-	// mongoClient represents the MongoDB client used by the Connector to connect to MongoDB.
-	mongoClient mongo.Client
-
-	// natsClient represents the NATS client used by the Connector to connect to NATS.
-	natsClient nats.Client
-
 	// server represents the HTTP server used by the Connector.
 	server *server.Server
 }
@@ -67,22 +61,26 @@ func New(opts ...Option) (*Connector, error) {
 	loggerOpts := &slog.HandlerOptions{Level: c.options.logLevel}
 	c.logger = slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
 
-	if mongoClient, err := mongo.NewDefaultClient(
-		mongo.WithMongoUri(c.options.mongoUri),
-		mongo.WithLogger(c.logger),
-	); err != nil {
-		return nil, err
-	} else {
-		c.mongoClient = mongoClient
+	if c.options.mongoClient == nil {
+		mongoClient, err := mongo.NewDefaultClient(
+			mongo.WithMongoUri(c.options.mongoUri),
+			mongo.WithLogger(c.logger),
+		)
+		if err != nil {
+			return nil, err
+		}
+		c.options.mongoClient = mongoClient
 	}
 
-	if natsClient, err := nats.NewDefaultClient(
-		nats.WithNatsUrl(c.options.natsUrl),
-		nats.WithLogger(c.logger),
-	); err != nil {
-		return nil, err
-	} else {
-		c.natsClient = natsClient
+	if c.options.natsClient == nil {
+		natsClient, err := nats.NewDefaultClient(
+			nats.WithNatsUrl(c.options.natsUrl),
+			nats.WithLogger(c.logger),
+		)
+		if err != nil {
+			return nil, err
+		}
+		c.options.natsClient = natsClient
 	}
 
 	c.options.ctx, c.options.stop = signal.NotifyContext(c.options.ctx, syscall.SIGINT, syscall.SIGTERM)
@@ -90,7 +88,7 @@ func New(opts ...Option) (*Connector, error) {
 	c.server = server.New(
 		server.WithAddr(c.options.serverAddr),
 		server.WithContext(c.options.ctx),
-		server.WithNamedMonitors(c.mongoClient, c.natsClient),
+		server.WithNamedMonitors(c.options.mongoClient, c.options.natsClient),
 		server.WithLogger(c.logger),
 	)
 
@@ -120,7 +118,7 @@ func (c *Connector) Run() error {
 			CollName:                     coll.collName,
 			ChangeStreamPreAndPostImages: coll.changeStreamPreAndPostImages,
 		}
-		if err := c.mongoClient.CreateCollection(groupCtx, createWatchedCollOpts); err != nil {
+		if err := c.options.mongoClient.CreateCollection(groupCtx, createWatchedCollOpts); err != nil {
 			return err
 		}
 
@@ -130,12 +128,12 @@ func (c *Connector) Run() error {
 			Capped:      coll.tokensCollCapped,
 			SizeInBytes: coll.tokensCollSizeInBytes,
 		}
-		if err := c.mongoClient.CreateCollection(groupCtx, createResumeTokensCollOpts); err != nil {
+		if err := c.options.mongoClient.CreateCollection(groupCtx, createResumeTokensCollOpts); err != nil {
 			return err
 		}
 
 		addStreamOpts := &nats.AddStreamOptions{StreamName: coll.streamName}
-		if err := c.natsClient.AddStream(groupCtx, addStreamOpts); err != nil {
+		if err := c.options.natsClient.AddStream(groupCtx, addStreamOpts); err != nil {
 			return err
 		}
 
@@ -153,10 +151,10 @@ func (c *Connector) Run() error {
 						MsgId: msgId,
 						Data:  data,
 					}
-					return c.natsClient.Publish(ctx, publishOpts)
+					return c.options.natsClient.Publish(ctx, publishOpts)
 				},
 			}
-			return c.mongoClient.WatchCollection(groupCtx, watchCollOpts) // blocking call
+			return c.options.mongoClient.WatchCollection(groupCtx, watchCollOpts) // blocking call
 		})
 	}
 
@@ -173,8 +171,8 @@ func (c *Connector) Run() error {
 }
 
 func (c *Connector) cleanup() {
-	c.closeClient(c.mongoClient)
-	c.closeClient(c.natsClient)
+	c.closeClient(c.options.mongoClient)
+	c.closeClient(c.options.natsClient)
 	c.options.stop()
 }
 
@@ -194,8 +192,14 @@ type Options struct {
 	// mongoUri represents the Connector's MongoDB URI.
 	mongoUri string
 
+	// mongoClient represents the MongoDB client used by the Connector to connect to MongoDB.
+	mongoClient mongo.Client
+
 	// natsUrl represents the Connector's NATS URL.
 	natsUrl string
+
+	// natsClient represents the NATS client used by the Connector to connect to NATS.
+	natsClient nats.Client
 
 	// ctx represents the Connector's context.
 	ctx  context.Context
@@ -246,11 +250,33 @@ func WithMongoUri(mongoUri string) Option {
 	}
 }
 
+// withMongoClient sets the Connector's MongoDB client implementation.
+// Used for testing.
+func withMongoClient(mongoClient mongo.Client) Option {
+	return func(o *Options) error {
+		if mongoClient != nil {
+			o.mongoClient = mongoClient
+		}
+		return nil
+	}
+}
+
 // WithNatsUrl sets the Connector's NATS URL.
 func WithNatsUrl(natsUrl string) Option {
 	return func(o *Options) error {
 		if natsUrl != "" {
 			o.natsUrl = natsUrl
+		}
+		return nil
+	}
+}
+
+// withNatsClient sets the Connector's NATS client implementation.
+// Used for testing.
+func withNatsClient(natsClient nats.Client) Option {
+	return func(o *Options) error {
+		if natsClient != nil {
+			o.natsClient = natsClient
 		}
 		return nil
 	}
