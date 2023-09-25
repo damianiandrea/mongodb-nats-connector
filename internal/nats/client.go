@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	defaultUrl  = "nats://127.0.0.1:4222"
 	defaultName = "nats"
 )
 
@@ -52,7 +51,6 @@ type DefaultClient struct {
 
 func NewDefaultClient(opts ...ClientOption) (*DefaultClient, error) {
 	c := &DefaultClient{
-		url:    defaultUrl,
 		name:   defaultName,
 		logger: slog.Default(),
 	}

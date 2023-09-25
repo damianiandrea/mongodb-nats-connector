@@ -23,7 +23,7 @@ func TestNewDefaultClient(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NoError(t, err)
-		require.Equal(t, "nats://127.0.0.1:4222", client.url)
+		require.Empty(t, client.url)
 		require.Equal(t, "nats", client.name)
 		require.Equal(t, slog.Default(), client.logger)
 		require.NotNil(t, client.conn)
