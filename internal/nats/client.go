@@ -38,7 +38,17 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		opt(c)
 	}
 
-	conn, err := nats.Connect(c.url)
+	conn, err := nats.Connect(c.url,
+		nats.DisconnectErrHandler(func(conn *nats.Conn, err error) {
+			c.logger.Error("disconnected from nats", "err", err)
+		}),
+		nats.ReconnectHandler(func(conn *nats.Conn) {
+			c.logger.Info("reconnected to nats", "url", conn.ConnectedUrlRedacted())
+		}),
+		nats.ClosedHandler(func(conn *nats.Conn) {
+			c.logger.Info("nats connection closed")
+		}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to nats: %v", err)
 	}
