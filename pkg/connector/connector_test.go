@@ -2,6 +2,7 @@ package connector
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -207,7 +208,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestConnector_Run(t *testing.T) {
-	t.Run("should run connector", func(t *testing.T) {
+	t.Run("should run connector and ", func(t *testing.T) {
 		var (
 			mongoClient     = &mockMongoClient{}
 			natsClient      = &mockNatsClient{}
@@ -238,44 +239,122 @@ func TestConnector_Run(t *testing.T) {
 			errCh <- conn.Run()
 		}()
 
-		require.Eventually(t, func() bool {
-			return slices.Contains(mongoClient.createCollectionOpts, mongo.CreateCollectionOptions{
-				DbName:                       dbName,
-				CollName:                     collName,
-				Capped:                       false,
-				SizeInBytes:                  0,
-				ChangeStreamPreAndPostImages: true,
-			})
-		}, 1*time.Second, 100*time.Millisecond)
-		require.Eventually(t, func() bool {
-			return slices.Contains(mongoClient.createCollectionOpts, mongo.CreateCollectionOptions{
-				DbName:                       tokensDbName,
-				CollName:                     tokensCollName,
-				Capped:                       true,
-				SizeInBytes:                  collSizeInBytes,
-				ChangeStreamPreAndPostImages: false,
-			})
-		}, 1*time.Second, 100*time.Millisecond)
-		require.Eventually(t, func() bool {
-			return slices.Contains(natsClient.addStreamOpts, nats.AddStreamOptions{
-				StreamName: streamName,
-			})
-		}, 1*time.Second, 100*time.Millisecond)
-		require.Eventually(t, func() bool {
-			return slices.ContainsFunc(mongoClient.WatchCollectionOpts, func(o mongo.WatchCollectionOptions) bool {
-				return o.WatchedDbName == dbName &&
-					o.WatchedCollName == collName &&
-					o.ResumeTokensDbName == tokensDbName &&
-					o.ResumeTokensCollName == tokensCollName &&
-					o.ResumeTokensCollCapped == true &&
-					o.StreamName == streamName &&
-					o.ChangeEventHandler != nil
-			})
-		}, 1*time.Second, 100*time.Millisecond)
+		t.Run("create watchable collections", func(t *testing.T) {
+			require.Eventually(t, func() bool {
+				return slices.Contains(mongoClient.createCollectionOpts, mongo.CreateCollectionOptions{
+					DbName:                       dbName,
+					CollName:                     collName,
+					Capped:                       false,
+					SizeInBytes:                  0,
+					ChangeStreamPreAndPostImages: true,
+				})
+			}, 1*time.Second, 100*time.Millisecond)
+		})
 
-		cancel()
+		t.Run("create resume tokens collections", func(t *testing.T) {
+			require.Eventually(t, func() bool {
+				return slices.Contains(mongoClient.createCollectionOpts, mongo.CreateCollectionOptions{
+					DbName:                       tokensDbName,
+					CollName:                     tokensCollName,
+					Capped:                       true,
+					SizeInBytes:                  collSizeInBytes,
+					ChangeStreamPreAndPostImages: false,
+				})
+			}, 1*time.Second, 100*time.Millisecond)
+		})
+
+		t.Run("add nats streams", func(t *testing.T) {
+			require.Eventually(t, func() bool {
+				return slices.Contains(natsClient.addStreamOpts, nats.AddStreamOptions{
+					StreamName: streamName,
+				})
+			}, 1*time.Second, 100*time.Millisecond)
+		})
+
+		t.Run("watch collections", func(t *testing.T) {
+			require.Eventually(t, func() bool {
+				return slices.ContainsFunc(mongoClient.watchCollectionOpts, func(o mongo.WatchCollectionOptions) bool {
+					return o.WatchedDbName == dbName &&
+						o.WatchedCollName == collName &&
+						o.ResumeTokensDbName == tokensDbName &&
+						o.ResumeTokensCollName == tokensCollName &&
+						o.ResumeTokensCollCapped == true &&
+						o.StreamName == streamName &&
+						o.ChangeEventHandler != nil
+				})
+			}, 1*time.Second, 100*time.Millisecond)
+		})
+
+		cancel() // stop the connector by canceling context
+
 		err := <-errCh
 		require.ErrorIs(t, err, http.ErrServerClosed)
+	})
+	t.Run("should stop connector and return error if collection creation fails", func(t *testing.T) {
+		var (
+			createCollErr = errors.New("create collection error")
+			mongoClient   = &mockMongoClient{
+				createCollectionErr: createCollErr,
+			}
+			natsClient      = &mockNatsClient{}
+			ctx, cancel     = context.WithCancel(context.Background())
+			dbName          = "connector-db"
+			collName        = "coll1"
+			tokensDbName    = "tokens-db"
+			tokensCollName  = "coll1-tokens"
+			collSizeInBytes = int64(2048)
+			streamName      = "coll1-stream"
+		)
+		defer cancel()
+
+		conn, _ := New(
+			withMongoClient(mongoClient), // avoid connecting to a real mongo instance
+			withNatsClient(natsClient),   // avoid connecting to a real nats instance
+			WithContext(ctx),
+			WithCollection(dbName, collName,
+				WithChangeStreamPreAndPostImages(),
+				WithTokensDbName(tokensDbName),
+				WithTokensCollName(tokensCollName),
+				WithTokensCollCapped(collSizeInBytes),
+				WithStreamName(streamName),
+			),
+		)
+
+		err := conn.Run()
+		require.ErrorIs(t, err, createCollErr)
+	})
+	t.Run("should stop connector and return error if stream add fails", func(t *testing.T) {
+		var (
+			addStreamErr = errors.New("add stream error")
+			mongoClient  = &mockMongoClient{}
+			natsClient   = &mockNatsClient{
+				addStreamErr: addStreamErr,
+			}
+			ctx, cancel     = context.WithCancel(context.Background())
+			dbName          = "connector-db"
+			collName        = "coll1"
+			tokensDbName    = "tokens-db"
+			tokensCollName  = "coll1-tokens"
+			collSizeInBytes = int64(2048)
+			streamName      = "coll1-stream"
+		)
+		defer cancel()
+
+		conn, _ := New(
+			withMongoClient(mongoClient), // avoid connecting to a real mongo instance
+			withNatsClient(natsClient),   // avoid connecting to a real nats instance
+			WithContext(ctx),
+			WithCollection(dbName, collName,
+				WithChangeStreamPreAndPostImages(),
+				WithTokensDbName(tokensDbName),
+				WithTokensCollName(tokensCollName),
+				WithTokensCollCapped(collSizeInBytes),
+				WithStreamName(streamName),
+			),
+		)
+
+		err := conn.Run()
+		require.ErrorIs(t, err, addStreamErr)
 	})
 }
 
@@ -284,7 +363,9 @@ type mockMongoClient struct {
 	name                 string
 	monitorErr           error
 	createCollectionOpts []mongo.CreateCollectionOptions
-	WatchCollectionOpts  []mongo.WatchCollectionOptions
+	createCollectionErr  error
+	watchCollectionOpts  []mongo.WatchCollectionOptions
+	watchCollectionErr   error
 }
 
 func (m *mockMongoClient) Close() error {
@@ -301,12 +382,18 @@ func (m *mockMongoClient) Monitor(_ context.Context) error {
 }
 
 func (m *mockMongoClient) CreateCollection(_ context.Context, opts *mongo.CreateCollectionOptions) error {
+	if m.createCollectionErr != nil {
+		return m.createCollectionErr
+	}
 	m.createCollectionOpts = append(m.createCollectionOpts, *opts)
 	return nil
 }
 
 func (m *mockMongoClient) WatchCollection(_ context.Context, opts *mongo.WatchCollectionOptions) error {
-	m.WatchCollectionOpts = append(m.WatchCollectionOpts, *opts)
+	if m.watchCollectionErr != nil {
+		return m.watchCollectionErr
+	}
+	m.watchCollectionOpts = append(m.watchCollectionOpts, *opts)
 	return nil
 }
 
@@ -315,7 +402,9 @@ type mockNatsClient struct {
 	name          string
 	monitorErr    error
 	addStreamOpts []nats.AddStreamOptions
+	addStreamErr  error
 	publishOpts   []nats.PublishOptions
+	publishErr    error
 }
 
 func (m *mockNatsClient) Close() error {
@@ -332,11 +421,17 @@ func (m *mockNatsClient) Monitor(_ context.Context) error {
 }
 
 func (m *mockNatsClient) AddStream(_ context.Context, opts *nats.AddStreamOptions) error {
+	if m.addStreamErr != nil {
+		return m.addStreamErr
+	}
 	m.addStreamOpts = append(m.addStreamOpts, *opts)
 	return nil
 }
 
 func (m *mockNatsClient) Publish(_ context.Context, opts *nats.PublishOptions) error {
+	if m.publishErr != nil {
+		return m.publishErr
+	}
 	m.publishOpts = append(m.publishOpts, *opts)
 	return nil
 }
