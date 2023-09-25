@@ -76,7 +76,7 @@ func New(opts ...Option) (*Connector, error) {
 		c.mongoClient = mongoClient
 	}
 
-	if natsClient, err := nats.NewClient(
+	if natsClient, err := nats.NewDefaultClient(
 		nats.WithNatsUrl(c.options.natsUrl),
 		nats.WithLogger(c.logger),
 	); err != nil {

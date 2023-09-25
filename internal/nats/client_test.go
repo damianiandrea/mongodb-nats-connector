@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewClient(t *testing.T) {
+func TestNewDefaultClient(t *testing.T) {
 	t.Run("should create client with defaults", func(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
 
-		client, err := NewClient()
+		client, err := NewDefaultClient()
 
 		require.NoError(t, err)
 		require.NoError(t, err)
@@ -36,7 +36,7 @@ func TestNewClient(t *testing.T) {
 		url := nats.DefaultURL
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-		client, err := NewClient(
+		client, err := NewDefaultClient(
 			WithNatsUrl(url),
 			WithLogger(logger),
 		)
@@ -49,7 +49,7 @@ func TestNewClient(t *testing.T) {
 		require.NotNil(t, client.js)
 	})
 	t.Run("should return error cause nats is not available", func(t *testing.T) {
-		client, err := NewClient()
+		client, err := NewDefaultClient()
 
 		require.Nil(t, client)
 		require.Error(t, err)
@@ -61,7 +61,7 @@ func TestClient_Name(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
-		client, _ := NewClient()
+		client, _ := NewDefaultClient()
 
 		name := client.Name()
 
@@ -74,7 +74,7 @@ func TestClient_Monitor(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
-		client, _ := NewClient()
+		client, _ := NewDefaultClient()
 
 		err := client.Monitor(context.Background())
 
@@ -84,7 +84,7 @@ func TestClient_Monitor(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
-		client, _ := NewClient()
+		client, _ := NewDefaultClient()
 		client.conn.Close()
 
 		err := client.Monitor(context.Background())
@@ -98,7 +98,7 @@ func TestClient_Close(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
-		client, _ := NewClient()
+		client, _ := NewDefaultClient()
 
 		err := client.Close()
 
@@ -112,7 +112,7 @@ func TestClient_AddStream(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
-		client, _ := NewClient()
+		client, _ := NewDefaultClient()
 
 		err := client.AddStream(context.Background(), &AddStreamOptions{StreamName: "TEST"})
 
@@ -127,7 +127,7 @@ func TestClient_AddStream(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
-		client, _ := NewClient()
+		client, _ := NewDefaultClient()
 		client.conn.Close()
 
 		err := client.AddStream(context.Background(), &AddStreamOptions{StreamName: "TEST"})
@@ -141,7 +141,7 @@ func TestClient_Publish(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
-		client, _ := NewClient()
+		client, _ := NewDefaultClient()
 		_, _ = client.js.AddStream(&nats.StreamConfig{
 			Name:     "TEST",
 			Subjects: []string{"TEST.*"},
@@ -167,7 +167,7 @@ func TestClient_Publish(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
 		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
-		client, _ := NewClient()
+		client, _ := NewDefaultClient()
 		client.conn.Close()
 
 		err := client.Publish(context.Background(), &PublishOptions{

@@ -50,7 +50,7 @@ type DefaultClient struct {
 	js   nats.JetStreamContext
 }
 
-func NewClient(opts ...ClientOption) (*DefaultClient, error) {
+func NewDefaultClient(opts ...ClientOption) (*DefaultClient, error) {
 	c := &DefaultClient{
 		url:    defaultUrl,
 		name:   defaultName,
