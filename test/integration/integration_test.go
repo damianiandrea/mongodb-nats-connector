@@ -295,6 +295,65 @@ func testMongoDeleteIsPublishedToNats(t *testing.T, testColl string) {
 	})
 }
 
+func TestMongoReplaceIsPublishedToNats(t *testing.T) {
+	testMongoReplaceIsPublishedToNats(t, "coll1")
+}
+
+func TestMongoReplaceIsPublishedToNatsUsingCappedResumeTokenColl(t *testing.T) {
+	testMongoReplaceIsPublishedToNats(t, "coll2")
+}
+
+func testMongoReplaceIsPublishedToNats(t *testing.T, testColl string) {
+	db := mongoClient.Database("test-connector")
+	coll := db.Collection(testColl)
+
+	result, err := coll.InsertOne(context.Background(), bson.D{{Key: "message", Value: "hi"}})
+	require.NoError(t, err)
+	require.NotNil(t, result.InsertedID)
+
+	filter := bson.D{{Key: "_id", Value: result.InsertedID}}
+	replacement := bson.D{{Key: "message", Value: "replaced"}}
+	_, err = coll.ReplaceOne(context.Background(), filter, replacement)
+	require.NoError(t, err)
+
+	testStream := strings.ToUpper(testColl)
+	subj := fmt.Sprintf("%s.replace", testStream)
+	sub, err := natsJs.SubscribeSync(subj, nats.DeliverLastPerSubject())
+	require.NoError(t, err)
+
+	event := &changeEvent{}
+	require.Eventually(t, func() bool {
+		msg, err := sub.NextMsg(5 * time.Second)
+		if err != nil {
+			return false
+		}
+		msgId := msg.Header.Get(nats.MsgIdHdr)
+		if err = json.Unmarshal(msg.Data, event); err != nil {
+			return false
+		}
+		return event.Id.Data != "" &&
+			event.Id.Data == msgId &&
+			event.OperationType == "replace" &&
+			event.FullDocument.Message == "replaced" &&
+			event.FullDocumentBeforeChange.Message == "hi"
+	}, 5*time.Second, 100*time.Millisecond)
+
+	tokensDb := mongoClient.Database("resume-tokens")
+	tokensColl := tokensDb.Collection(testColl)
+	require.Eventually(t, func() bool {
+		return lastResumeTokenIsUpdated(tokensColl, event)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	t.Cleanup(func() {
+		require.NoError(t, sub.Unsubscribe())
+		_, err := coll.DeleteMany(context.Background(), bson.D{})
+		require.NoError(t, err)
+		_, err = tokensColl.DeleteMany(context.Background(), bson.D{})
+		require.NoError(t, err)
+		require.NoError(t, natsJs.PurgeStream(testStream))
+	})
+}
+
 func lastResumeTokenIsUpdated(tokensColl *mongo.Collection, event *changeEvent) bool {
 	opt := options.FindOne().SetSort(bson.D{{Key: "$natural", Value: -1}})
 	lastResumeToken := &resumeToken{}
