@@ -218,7 +218,8 @@ func testMongoUpdateIsPublishedToNats(t *testing.T, testColl string) {
 		return event.Id.Data != "" &&
 			event.Id.Data == msgId &&
 			event.OperationType == "update" &&
-			event.FullDocument.Message == "bye"
+			event.FullDocument.Message == "bye" &&
+			event.FullDocumentBeforeChange.Message == "hi"
 	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
