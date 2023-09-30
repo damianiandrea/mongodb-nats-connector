@@ -220,6 +220,7 @@ func TestConnector_Run(t *testing.T) {
 			collSizeInBytes = int64(2048)
 			streamName      = "coll1-stream"
 		)
+		defer cancel()
 
 		conn, _ := New(
 			withMongoClient(mongoClient), // avoid connecting to a real mongo instance
@@ -285,10 +286,13 @@ func TestConnector_Run(t *testing.T) {
 			}, 1*time.Second, 100*time.Millisecond)
 		})
 
-		cancel() // stop the connector by canceling context
-
-		err := <-errCh
-		require.ErrorIs(t, err, http.ErrServerClosed)
+		t.Run("shut down and close clients when context is cancelled", func(t *testing.T) {
+			cancel() // stop the connector by canceling context
+			err := <-errCh
+			require.ErrorIs(t, err, http.ErrServerClosed)
+			require.True(t, mongoClient.closed)
+			require.True(t, natsClient.closed)
+		})
 	})
 	t.Run("should stop connector and return error if collection creation fails", func(t *testing.T) {
 		var (
@@ -369,7 +373,7 @@ type mockMongoClient struct {
 }
 
 func (m *mockMongoClient) Close() error {
-	m.closed = false
+	m.closed = true
 	return nil
 }
 
