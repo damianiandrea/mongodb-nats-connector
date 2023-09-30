@@ -80,6 +80,7 @@ func mustWaitForConnector(time time.Duration) {
 
 func TestHealthzEndpoint(t *testing.T) {
 	response, err := http.Get(fmt.Sprintf("%s/healthz", connectorUrl))
+	defer response.Body.Close()
 	healthRes := &healthResponse{}
 
 	require.NoError(t, err)
