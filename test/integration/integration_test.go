@@ -153,10 +153,14 @@ func testMongoInsertIsPublishedToNats(t *testing.T, testColl string) {
 		if err != nil {
 			return false
 		}
+		msgId := msg.Header.Get(nats.MsgIdHdr)
 		if err = json.Unmarshal(msg.Data, event); err != nil {
 			return false
 		}
-		return event.Id.Data != "" && event.OperationType == "insert" && event.FullDocument.Message == "hi"
+		return event.Id.Data != "" &&
+			event.Id.Data == msgId &&
+			event.OperationType == "insert" &&
+			event.FullDocument.Message == "hi"
 	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
@@ -207,10 +211,14 @@ func testMongoUpdateIsPublishedToNats(t *testing.T, testColl string) {
 		if err != nil {
 			return false
 		}
+		msgId := msg.Header.Get(nats.MsgIdHdr)
 		if err = json.Unmarshal(msg.Data, event); err != nil {
 			return false
 		}
-		return event.Id.Data != "" && event.OperationType == "update" && event.FullDocument.Message == "bye"
+		return event.Id.Data != "" &&
+			event.Id.Data == msgId &&
+			event.OperationType == "update" &&
+			event.FullDocument.Message == "bye"
 	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
@@ -260,10 +268,14 @@ func testMongoDeleteIsPublishedToNats(t *testing.T, testColl string) {
 		if err != nil {
 			return false
 		}
+		msgId := msg.Header.Get(nats.MsgIdHdr)
 		if err = json.Unmarshal(msg.Data, event); err != nil {
 			return false
 		}
-		return event.Id.Data != "" && event.OperationType == "delete" && event.FullDocumentBeforeChange.Message == "hi"
+		return event.Id.Data != "" &&
+			event.Id.Data == msgId &&
+			event.OperationType == "delete" &&
+			event.FullDocumentBeforeChange.Message == "hi"
 	}, 5*time.Second, 100*time.Millisecond)
 
 	tokensDb := mongoClient.Database("resume-tokens")
