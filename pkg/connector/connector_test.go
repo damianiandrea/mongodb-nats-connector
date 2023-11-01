@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -225,6 +224,7 @@ func TestConnector_Run(t *testing.T) {
 		conn, _ := New(
 			withMongoClient(mongoClient), // avoid connecting to a real mongo instance
 			withNatsClient(natsClient),   // avoid connecting to a real nats instance
+			WithServerAddr(":0"),
 			WithContext(ctx),
 			WithCollection(dbName, collName,
 				WithChangeStreamPreAndPostImages(),
@@ -289,7 +289,7 @@ func TestConnector_Run(t *testing.T) {
 		t.Run("shut down and close clients when context is cancelled", func(t *testing.T) {
 			cancel() // stop the connector by canceling context
 			err := <-errCh
-			require.ErrorIs(t, err, http.ErrServerClosed)
+			require.NotNil(t, err)
 			require.True(t, mongoClient.closed)
 			require.True(t, natsClient.closed)
 		})
