@@ -5,4 +5,6 @@ WORKDIR /test
 COPY go.* ./
 RUN go mod download
 COPY ./test ./test
-CMD CGO_ENABLED=0 go test -tags integration -v ./test/integration/...
+ENV CGO_ENABLED=0
+CMD go test -tags integration -v ./test/acceptance/... ; \
+    go test -tags integration -v ./test/faultinjection/...

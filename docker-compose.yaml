@@ -106,6 +106,8 @@ services:
     container_name: connector-it
     networks:
       - connector-net
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
     environment:
       - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=mongodb-nats-connector
       - NATS_URL=nats://nats1:4222
