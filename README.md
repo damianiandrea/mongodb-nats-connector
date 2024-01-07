@@ -26,8 +26,8 @@ and `coll2`, if they do not already exist. These are the collections where the r
 * Create two streams on NATS JetStream, `COLL1` and `COLL2`, if they do not already exist.
 * Start watching the `coll1` and `coll2` collections, publishing any change event to NATS `COLL1` and `COLL2` streams 
 respectively. Depending on the operation type, a different stream subject will be used, for example inserting a document
-in `coll1` will result in a message being published on `COLL1.insert`, for updates it will be `COLL1.update`, and for 
-deletions `COLL1.delete`.
+in `coll1` will result in a message being published on `COLL1.insert`, for updates it will be `COLL1.update`, for 
+replacements `COLL1.replace`, and for deletions `COLL1.delete`.
 
 Check that the connector is up and running:
 
