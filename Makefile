@@ -13,7 +13,7 @@ create-connector:
 	docker-compose up --build --no-start connector
 
 run-it:
-	docker-compose up --build connector-it --exit-code-from connector-it
+	docker-compose up --build connector-it
 
 stop:
 	docker-compose down -v --remove-orphans
