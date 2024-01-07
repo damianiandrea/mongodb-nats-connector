@@ -85,7 +85,7 @@ e\":{\"$date\":\"2023-05-09T12:59:38.017Z\"},\"fullDocument\":{\"_id\":{\"$oid\"
 ```
 
 As you can see the change event was received and the connector published a message on NATS JetStream. 
-Let's view our example stream `COLL1` with NATS CLI:
+Let's view our example stream `COLL1` with [NATS CLI](https://github.com/nats-io/natscli):
 
 ```
 nats stream view COLL1
