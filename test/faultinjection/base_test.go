@@ -4,13 +4,10 @@ package faultinjection
 
 import (
 	"context"
-	"encoding/json"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/damianiandrea/mongodb-nats-connector/test/harness"
 )
@@ -30,21 +27,5 @@ func TestBase(t *testing.T) {
 
 	h.MustWaitForConnector(10 * time.Second)
 
-	var (
-		maxMsgs = 100
-		idCh    = make(chan string, maxMsgs)
-		wg      = &sync.WaitGroup{}
-	)
-	h.MustMongoBackgroundInsertN(maxMsgs, "test-connector", "coll1", wg, idCh)
-
-	msgs := h.MustNatsSubscribeAll("COLL1.insert", maxMsgs, 10*time.Second)
-	wg.Wait()
-
-	i := 0
-	for id := range idCh {
-		event := &harness.ChangeEvent{}
-		require.NoError(t, json.Unmarshal(msgs[i].Data, event))
-		require.Equal(t, id, event.FullDocument.Id.Hex())
-		i++
-	}
+	h.MustVerifyMessageCorrectness(100, "test-connector", "coll1", func() {})
 }

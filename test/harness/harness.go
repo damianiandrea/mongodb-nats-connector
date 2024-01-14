@@ -4,9 +4,11 @@ package harness
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -222,6 +224,28 @@ func (h *Harness) MustNatsSubscribeAll(subj string, maxMsgs int, wait time.Durat
 		}
 	}
 	return msgs
+}
+
+func (h *Harness) MustVerifyMessageCorrectness(maxMsgs int, dbName, collName string, beforeSubscribeFunc func()) {
+	var (
+		idCh   = make(chan string, maxMsgs)
+		wg     = &sync.WaitGroup{}
+		stream = strings.ToUpper(collName)
+	)
+	h.MustMongoBackgroundInsertN(maxMsgs, dbName, collName, wg, idCh)
+
+	beforeSubscribeFunc()
+
+	msgs := h.MustNatsSubscribeAll(stream+".insert", maxMsgs, 10*time.Second)
+	wg.Wait()
+
+	i := 0
+	for id := range idCh {
+		event := &ChangeEvent{}
+		require.NoError(h.t, json.Unmarshal(msgs[i].Data, event))
+		require.Equal(h.t, id, event.FullDocument.Id.Hex())
+		i++
+	}
 }
 
 type ChangeEvent struct {
