@@ -125,6 +125,13 @@ func (h *Harness) mustCallHealthz(url string, wait time.Duration) {
 	require.Eventually(h.t, cond, wait, 50*time.Millisecond, "time exhausted: could not reach %s", healthzUrl)
 }
 
+func (h *Harness) MustWaitForMongo(wait time.Duration) {
+	cond := func() bool {
+		return h.MongoClient.Ping(context.Background(), readpref.PrimaryPreferred()) == nil
+	}
+	require.Eventually(h.t, cond, wait, 50*time.Millisecond, "time exhausted: could not reach mongo")
+}
+
 func (h *Harness) MustMongoInsertOne(ctx context.Context, dbName, collName string, doc bson.D) primitive.ObjectID {
 	db := h.MongoClient.Database(dbName)
 	coll := db.Collection(collName)
