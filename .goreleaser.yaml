@@ -1,9 +1,5 @@
 version: 1
 
-before:
-  hooks:
-    - go mod tidy
-
 builds:
   - env:
       - CGO_ENABLED=0
@@ -11,6 +7,7 @@ builds:
       - linux
       - windows
       - darwin
+    main: ./cmd/connector
 
 archives:
   - format: tar.gz
@@ -26,6 +23,11 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+    files:
+      - LICENSE.md
+      - README.md
+      - src: example/connector.yaml
+        strip_parent: true
 
 changelog:
   sort: asc
@@ -33,3 +35,10 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+  use: github
+
+dockers:
+  - image_templates: [
+    "damianiandrea/mongodb-nats-connector:latest",
+    "damianiandrea/mongodb-nats-connector:{{ .Tag }}"
+  ]
