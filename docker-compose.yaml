@@ -101,7 +101,7 @@ services:
       - connector
     build:
       context: .
-      dockerfile: Dockerfile-it
+      dockerfile: Dockerfile.it
     image: connector-it:latest
     container_name: connector-it
     networks:

@@ -8,6 +8,7 @@ builds:
       - windows
       - darwin
     main: ./cmd/connector
+    binary: connector
 
 archives:
   - format: tar.gz
@@ -38,7 +39,8 @@ changelog:
   use: github
 
 dockers:
-  - image_templates: [
-    "damianiandrea/mongodb-nats-connector:latest",
-    "damianiandrea/mongodb-nats-connector:{{ .Tag }}"
-  ]
+  - 
+    image_templates:
+      - "damianiandrea/mongodb-nats-connector:latest"
+      - "damianiandrea/mongodb-nats-connector:{{ .Tag }}"
+    dockerfile: Dockerfile.release
