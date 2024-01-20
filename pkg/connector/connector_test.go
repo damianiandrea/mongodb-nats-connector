@@ -1,6 +1,7 @@
 package connector
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
@@ -219,6 +220,9 @@ func TestConnector_Run(t *testing.T) {
 			tokensCollName  = "coll1-tokens"
 			collSizeInBytes = int64(2048)
 			streamName      = "coll1-stream"
+			subj            = "subj"
+			msgId           = "msgId"
+			data            = []byte("event")
 		)
 		defer cancel()
 
@@ -267,7 +271,7 @@ func TestConnector_Run(t *testing.T) {
 
 		t.Run("add nats streams", func(t *testing.T) {
 			require.Eventually(t, func() bool {
-				return slices.Contains(natsClient.addStreamOpts, nats.AddStreamOptions{
+				return natsClient.StreamWasAdded(nats.AddStreamOptions{
 					StreamName: streamName,
 				})
 			}, 1*time.Second, 100*time.Millisecond)
@@ -283,6 +287,14 @@ func TestConnector_Run(t *testing.T) {
 					ResumeTokensCollCapped: true,
 					StreamName:             streamName,
 				})
+			}, 1*time.Second, 100*time.Millisecond)
+		})
+
+		t.Run("publish change event messages", func(t *testing.T) {
+			mongoClient.SimulateChangeEvents(subj, msgId, data)
+
+			require.Eventually(t, func() bool {
+				return natsClient.MessageWasPublished(nats.PublishOptions{Subj: subj, MsgId: msgId, Data: data})
 			}, 1*time.Second, 100*time.Millisecond)
 		})
 
@@ -429,14 +441,26 @@ func (m *mockMongoClient) CollectionWasWatched(opts mongo.WatchCollectionOptions
 	})
 }
 
+func (m *mockMongoClient) SimulateChangeEvents(subj, msgId string, data []byte) {
+	m.muw.Lock()
+	defer m.muw.Unlock()
+	for _, opt := range m.watchCollectionOpts {
+		opt.ChangeEventHandler(context.Background(), subj, msgId, data)
+	}
+}
+
 type mockNatsClient struct {
-	closed        bool
-	name          string
-	monitorErr    error
+	closed     bool
+	name       string
+	monitorErr error
+
+	mua           sync.Mutex
 	addStreamOpts []nats.AddStreamOptions
 	addStreamErr  error
-	publishOpts   []nats.PublishOptions
-	publishErr    error
+
+	mup         sync.Mutex
+	publishOpts []nats.PublishOptions
+	publishErr  error
 }
 
 func (m *mockNatsClient) Close() error {
@@ -456,14 +480,32 @@ func (m *mockNatsClient) AddStream(_ context.Context, opts *nats.AddStreamOption
 	if m.addStreamErr != nil {
 		return m.addStreamErr
 	}
+	m.mua.Lock()
+	defer m.mua.Unlock()
 	m.addStreamOpts = append(m.addStreamOpts, *opts)
 	return nil
+}
+
+func (m *mockNatsClient) StreamWasAdded(opt nats.AddStreamOptions) bool {
+	m.mua.Lock()
+	defer m.mua.Unlock()
+	return slices.Contains(m.addStreamOpts, opt)
 }
 
 func (m *mockNatsClient) Publish(_ context.Context, opts *nats.PublishOptions) error {
 	if m.publishErr != nil {
 		return m.publishErr
 	}
+	m.mup.Lock()
+	defer m.mup.Unlock()
 	m.publishOpts = append(m.publishOpts, *opts)
 	return nil
+}
+
+func (m *mockNatsClient) MessageWasPublished(opt nats.PublishOptions) bool {
+	m.mup.Lock()
+	defer m.mup.Unlock()
+	return slices.ContainsFunc(m.publishOpts, func(po nats.PublishOptions) bool {
+		return po.Subj == opt.Subj && po.MsgId == opt.MsgId && bytes.Equal(po.Data, opt.Data)
+	})
 }
