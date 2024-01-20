@@ -445,7 +445,7 @@ func (m *mockMongoClient) SimulateChangeEvents(subj, msgId string, data []byte) 
 	m.muw.Lock()
 	defer m.muw.Unlock()
 	for _, opt := range m.watchCollectionOpts {
-		opt.ChangeEventHandler(context.Background(), subj, msgId, data)
+		_ = opt.ChangeEventHandler(context.Background(), subj, msgId, data)
 	}
 }
 
