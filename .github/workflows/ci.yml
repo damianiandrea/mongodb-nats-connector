@@ -3,12 +3,18 @@ name: CI
 on:
   push:
     branches: [ "main" ]
-    paths-ignore:
-      - 'README.md'
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'test/**'
   pull_request:
     branches: [ "main" ]
-    paths-ignore:
-      - 'README.md'
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'test/**'
 
 jobs:
   lint:
