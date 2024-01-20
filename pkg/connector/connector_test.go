@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -242,7 +243,7 @@ func TestConnector_Run(t *testing.T) {
 
 		t.Run("create watchable collections", func(t *testing.T) {
 			require.Eventually(t, func() bool {
-				return slices.Contains(mongoClient.createCollectionOpts, mongo.CreateCollectionOptions{
+				return mongoClient.CollectionWasCreated(mongo.CreateCollectionOptions{
 					DbName:                       dbName,
 					CollName:                     collName,
 					Capped:                       false,
@@ -254,7 +255,7 @@ func TestConnector_Run(t *testing.T) {
 
 		t.Run("create resume tokens collections", func(t *testing.T) {
 			require.Eventually(t, func() bool {
-				return slices.Contains(mongoClient.createCollectionOpts, mongo.CreateCollectionOptions{
+				return mongoClient.CollectionWasCreated(mongo.CreateCollectionOptions{
 					DbName:                       tokensDbName,
 					CollName:                     tokensCollName,
 					Capped:                       true,
@@ -274,14 +275,13 @@ func TestConnector_Run(t *testing.T) {
 
 		t.Run("watch collections", func(t *testing.T) {
 			require.Eventually(t, func() bool {
-				return slices.ContainsFunc(mongoClient.watchCollectionOpts, func(o mongo.WatchCollectionOptions) bool {
-					return o.WatchedDbName == dbName &&
-						o.WatchedCollName == collName &&
-						o.ResumeTokensDbName == tokensDbName &&
-						o.ResumeTokensCollName == tokensCollName &&
-						o.ResumeTokensCollCapped == true &&
-						o.StreamName == streamName &&
-						o.ChangeEventHandler != nil
+				return mongoClient.CollectionWasWatched(mongo.WatchCollectionOptions{
+					WatchedDbName:          dbName,
+					WatchedCollName:        collName,
+					ResumeTokensDbName:     tokensDbName,
+					ResumeTokensCollName:   tokensCollName,
+					ResumeTokensCollCapped: true,
+					StreamName:             streamName,
 				})
 			}, 1*time.Second, 100*time.Millisecond)
 		})
@@ -363,13 +363,17 @@ func TestConnector_Run(t *testing.T) {
 }
 
 type mockMongoClient struct {
-	closed               bool
-	name                 string
-	monitorErr           error
+	closed     bool
+	name       string
+	monitorErr error
+
+	muc                  sync.Mutex
 	createCollectionOpts []mongo.CreateCollectionOptions
 	createCollectionErr  error
-	watchCollectionOpts  []mongo.WatchCollectionOptions
-	watchCollectionErr   error
+
+	muw                 sync.Mutex
+	watchCollectionOpts []mongo.WatchCollectionOptions
+	watchCollectionErr  error
 }
 
 func (m *mockMongoClient) Close() error {
@@ -389,16 +393,40 @@ func (m *mockMongoClient) CreateCollection(_ context.Context, opts *mongo.Create
 	if m.createCollectionErr != nil {
 		return m.createCollectionErr
 	}
+	m.muc.Lock()
+	defer m.muc.Unlock()
 	m.createCollectionOpts = append(m.createCollectionOpts, *opts)
 	return nil
+}
+
+func (m *mockMongoClient) CollectionWasCreated(opts mongo.CreateCollectionOptions) bool {
+	m.muc.Lock()
+	defer m.muc.Unlock()
+	return slices.Contains(m.createCollectionOpts, opts)
 }
 
 func (m *mockMongoClient) WatchCollection(_ context.Context, opts *mongo.WatchCollectionOptions) error {
 	if m.watchCollectionErr != nil {
 		return m.watchCollectionErr
 	}
+	m.muw.Lock()
+	defer m.muw.Unlock()
 	m.watchCollectionOpts = append(m.watchCollectionOpts, *opts)
 	return nil
+}
+
+func (m *mockMongoClient) CollectionWasWatched(opts mongo.WatchCollectionOptions) bool {
+	m.muw.Lock()
+	defer m.muw.Unlock()
+	return slices.ContainsFunc(m.watchCollectionOpts, func(o mongo.WatchCollectionOptions) bool {
+		return o.WatchedDbName == opts.WatchedDbName &&
+			o.WatchedCollName == opts.WatchedCollName &&
+			o.ResumeTokensDbName == opts.ResumeTokensDbName &&
+			o.ResumeTokensCollName == opts.ResumeTokensCollName &&
+			o.ResumeTokensCollCapped == opts.ResumeTokensCollCapped &&
+			o.StreamName == opts.StreamName &&
+			o.ChangeEventHandler != nil
+	})
 }
 
 type mockNatsClient struct {

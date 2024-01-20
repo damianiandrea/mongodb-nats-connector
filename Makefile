@@ -1,7 +1,7 @@
 .PHONY: test
 
 test:
-	go test -v -cover ./...
+	go test -v -race -cover ./...
 
 run:
 	docker-compose up --build -d mongo1 mongo2 mongo3 nats1 nats2 nats3 connector
