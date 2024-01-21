@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/docker/docker v25.0.0+incompatible
-	github.com/nats-io/nats-server/v2 v2.9.8
+	github.com/nats-io/nats-server/v2 v2.10.9
 	github.com/nats-io/nats.go v1.32.0
 	github.com/stretchr/testify v1.8.4
 	go.mongodb.org/mongo-driver v1.13.1
@@ -24,12 +24,13 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
-	github.com/klauspost/compress v1.17.2 // indirect
+	github.com/klauspost/compress v1.17.4 // indirect
+	github.com/kr/pretty v0.1.0 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/nats-io/jwt/v2 v2.3.0 // indirect
+	github.com/nats-io/jwt/v2 v2.5.3 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -51,7 +52,8 @@ require (
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af // indirect
+	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
