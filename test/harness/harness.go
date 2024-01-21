@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/nats-io/nats.go"
@@ -98,7 +97,7 @@ func New(t *testing.T, opt *Options) *Harness {
 
 func (h *Harness) MustStartContainer(ctx context.Context, names ...string) {
 	for _, name := range names {
-		err := h.DockerClient.ContainerStart(ctx, name, types.ContainerStartOptions{})
+		err := h.DockerClient.ContainerStart(ctx, name, container.StartOptions{})
 		require.NoError(h.t, err)
 	}
 }
@@ -196,7 +195,9 @@ func (h *Harness) MustMongoReplaceOne(ctx context.Context, dbName, collName stri
 func (h *Harness) MustNatsSubscribeNextMsg(subj string, timeout time.Duration) *nats.Msg {
 	sub, err := h.NatsJs.SubscribeSync(subj, nats.DeliverLastPerSubject())
 	require.NoError(h.t, err)
-	defer sub.Unsubscribe()
+	defer func() {
+		_ = sub.Unsubscribe()
+	}()
 
 	msg, err := sub.NextMsg(timeout)
 	require.NoError(h.t, err)
@@ -209,7 +210,9 @@ func (h *Harness) MustNatsSubscribeAll(subj string, maxMsgs int, wait time.Durat
 
 	sub, err := h.NatsJs.ChanSubscribe(subj, msgCh, nats.DeliverAll())
 	require.NoError(h.t, err)
-	defer sub.Unsubscribe()
+	defer func() {
+		_ = sub.Unsubscribe()
+	}()
 
 	msgs := make([]*nats.Msg, maxMsgs)
 
