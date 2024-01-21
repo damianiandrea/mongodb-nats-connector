@@ -8,6 +8,7 @@ on:
       - 'internal/**'
       - 'pkg/**'
       - 'test/**'
+      - 'go.mod'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -15,6 +16,7 @@ on:
       - 'internal/**'
       - 'pkg/**'
       - 'test/**'
+      - 'go.mod'
 
 jobs:
   lint:
