@@ -140,7 +140,7 @@ environment variables.
 ### Configuration File
 
 Let's start with the configuration file: it is used to tell the connector what collections it should watch, and in what
-streams it should publish events when those collections change (as in, when insertions, updates or deletions are 
+streams it should publish events when those collections change (as in, when insertions, updates, replacements, or deletions are 
 performed).
 
 For each collection, the following properties can be configured:
