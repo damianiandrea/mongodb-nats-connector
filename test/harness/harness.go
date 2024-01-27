@@ -133,6 +133,15 @@ func (h *Harness) MustWaitForMongo(wait time.Duration) {
 	require.Eventually(h.t, cond, wait, 50*time.Millisecond, "time exhausted: could not reach mongo")
 }
 
+func (h *Harness) MustEnsureConnectorIsUpFor(wait time.Duration) {
+	url := fmt.Sprintf("%s/healthz", h.ConnectorUrl)
+	cond := func() bool {
+		response, err := http.Get(url)
+		return err != nil || response.StatusCode != http.StatusOK
+	}
+	require.Never(h.t, cond, wait, 50*time.Millisecond)
+}
+
 func (h *Harness) MustMongoInsertOne(ctx context.Context, dbName, collName string, doc bson.D) primitive.ObjectID {
 	db := h.MongoClient.Database(dbName)
 	coll := db.Collection(collName)
@@ -190,6 +199,29 @@ func (h *Harness) MustMongoReplaceOne(ctx context.Context, dbName, collName stri
 	result, err := coll.ReplaceOne(ctx, filter, replacement)
 	require.NoError(h.t, err)
 	require.Equal(h.t, int64(1), result.ModifiedCount)
+}
+
+func (h *Harness) MustMongoDropDatabase(ctx context.Context, dbName string) {
+	db := h.MongoClient.Database(dbName)
+
+	require.NoError(h.t, db.Drop(ctx))
+}
+
+func (h *Harness) MustMongoDropCollection(ctx context.Context, dbName, collName string) {
+	db := h.MongoClient.Database(dbName)
+	coll := db.Collection(collName)
+
+	require.NoError(h.t, coll.Drop(ctx))
+}
+
+func (h *Harness) MustMongoRenameCollection(ctx context.Context, dbName, collName, newCollName string) {
+	db := h.MongoClient.Database("admin")
+
+	err := db.RunCommand(ctx, bson.D{
+		{Key: "renameCollection", Value: fmt.Sprintf("%s.%s", dbName, collName)},
+		{Key: "to", Value: fmt.Sprintf("%s.%s", dbName, newCollName)},
+	}).Err()
+	require.NoError(h.t, err)
 }
 
 func (h *Harness) MustNatsSubscribeNextMsg(subj string, timeout time.Duration) *nats.Msg {

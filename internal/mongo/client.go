@@ -18,6 +18,8 @@ import (
 
 const (
 	defaultName = "mongo"
+
+	invalidateOperationType = "invalidate"
 )
 
 type Client interface {
@@ -140,7 +142,8 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 	watchedDb := c.client.Database(opts.WatchedDbName)
 	watchedColl := watchedDb.Collection(opts.WatchedCollName)
 
-	for {
+	resume := true
+	for resume {
 		findOneOpts := options.FindOne()
 		if opts.ResumeTokensCollCapped {
 			// use natural sort for capped collections to get the last inserted resume token
@@ -181,6 +184,11 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 			}
 			c.logger.Debug("received change event", "changeEvent", string(json))
 
+			if operationType == invalidateOperationType {
+				resume = false
+				break
+			}
+
 			subj := fmt.Sprintf("%s.%s", opts.StreamName, operationType)
 			if err = opts.ChangeEventHandler(ctx, subj, currentResumeToken, json); err != nil {
 				// current change event was not published.
@@ -204,6 +212,8 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 			return fmt.Errorf("could not close change stream: %v", err)
 		}
 	}
+
+	return nil
 }
 
 type resumeToken struct {
