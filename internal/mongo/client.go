@@ -18,9 +18,22 @@ import (
 
 const (
 	defaultName = "mongo"
+)
 
+const (
+	insertOperationType     = "insert"
+	updateOperationType     = "update"
+	replacOperationType     = "replace"
+	deleteOperationType     = "delete"
 	invalidateOperationType = "invalidate"
 )
+
+var publishableOperationTypes = map[string]struct{}{
+	insertOperationType: {}, 
+	updateOperationType: {},
+	replacOperationType: {},
+	deleteOperationType: {},
+}
 
 type Client interface {
 	server.NamedMonitor
@@ -184,9 +197,12 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 			}
 			c.logger.Debug("received change event", "changeEvent", string(json))
 
-			if operationType == invalidateOperationType {
-				resume = false
-				break
+			if _, ok := publishableOperationTypes[operationType]; !ok {
+				if operationType == invalidateOperationType {
+					resume = false
+					break
+				}
+				continue
 			}
 
 			subj := fmt.Sprintf("%s.%s", opts.StreamName, operationType)

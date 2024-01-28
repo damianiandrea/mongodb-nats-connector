@@ -225,15 +225,24 @@ func (h *Harness) MustMongoRenameCollection(ctx context.Context, dbName, collNam
 }
 
 func (h *Harness) MustNatsSubscribeNextMsg(subj string, timeout time.Duration) *nats.Msg {
+	msg, err := h.mustNatsSubscribeNextMsg(subj, timeout)
+	require.NoError(h.t, err)
+	return msg
+}
+
+func (h *Harness) MustNotReceiveNatsMsg(subj string, timeout time.Duration) {
+	_, err := h.mustNatsSubscribeNextMsg(subj, timeout)
+	require.ErrorIs(h.t, err, nats.ErrTimeout)
+}
+
+func (h *Harness) mustNatsSubscribeNextMsg(subj string, timeout time.Duration) (*nats.Msg, error) {
 	sub, err := h.NatsJs.SubscribeSync(subj, nats.DeliverLastPerSubject())
 	require.NoError(h.t, err)
 	defer func() {
 		_ = sub.Unsubscribe()
 	}()
 
-	msg, err := sub.NextMsg(timeout)
-	require.NoError(h.t, err)
-	return msg
+	return sub.NextMsg(timeout)
 }
 
 func (h *Harness) MustNatsSubscribeAll(subj string, maxMsgs int, wait time.Duration) []*nats.Msg {
