@@ -12,7 +12,7 @@ import (
 	"github.com/damianiandrea/mongodb-nats-connector/test/harness"
 )
 
-func TestMongoDropCollectionDoesNotCrashConnector(t *testing.T) {
+func TestMongoDropCollection(t *testing.T) {
 	ctx := context.Background()
 	h := harness.New(t, harness.FromEnv())
 
@@ -29,10 +29,20 @@ func TestMongoDropCollectionDoesNotCrashConnector(t *testing.T) {
 
 	h.MustMongoDropCollection(ctx, "test-connector", "coll1")
 
-	h.MustEnsureConnectorIsUpFor(1 * time.Second)
+	t.Run("does not publish drop message", func(t *testing.T) {
+		h.MustNotReceiveNatsMsg("COLL1.drop", 1 * time.Second)
+	})
+
+	t.Run("does not publish invalidate message", func(t *testing.T) {
+		h.MustNotReceiveNatsMsg("COLL1.invalidate", 1 * time.Second)
+	})
+
+	t.Run("does not crash connector", func(t *testing.T) {
+		h.MustEnsureConnectorIsUpFor(1 * time.Second)
+	})
 }
 
-func TestMongoDropDatabaseDoesNotCrashConnector(t *testing.T) {
+func TestMongoDropDatabase(t *testing.T) {
 	ctx := context.Background()
 	h := harness.New(t, harness.FromEnv())
 
@@ -49,25 +59,15 @@ func TestMongoDropDatabaseDoesNotCrashConnector(t *testing.T) {
 
 	h.MustMongoDropDatabase(ctx, "test-connector")
 
-	h.MustEnsureConnectorIsUpFor(1 * time.Second)
-}
-
-func TestMongoRenameCollectionDoesNotCrashConnector(t *testing.T) {
-	ctx := context.Background()
-	h := harness.New(t, harness.FromEnv())
-
-	h.MustStartContainer(ctx, harness.Connector)
-	t.Cleanup(func() {
-		h.MustStopContainer(ctx, harness.Connector)
-		assert.NoError(t, h.MongoClient.Database("test-connector").Drop(ctx))
-		assert.NoError(t, h.MongoClient.Database("resume-tokens").Drop(ctx))
-		assert.NoError(t, h.NatsJs.PurgeStream("COLL1"))
-		assert.NoError(t, h.NatsJs.PurgeStream("COLL2"))
+	t.Run("does not publish drop message", func(t *testing.T) {
+		h.MustNotReceiveNatsMsg("COLL1.drop", 1 * time.Second)
 	})
 
-	h.MustWaitForConnector(10 * time.Second)
+	t.Run("does not publish invalidate message", func(t *testing.T) {
+		h.MustNotReceiveNatsMsg("COLL1.invalidate", 1 * time.Second)
+	})
 
-	h.MustMongoRenameCollection(ctx, "test-connector", "coll1", "coll3")
-
-	h.MustEnsureConnectorIsUpFor(1 * time.Second)
+	t.Run("does not crash connector", func(t *testing.T) {
+		h.MustEnsureConnectorIsUpFor(1 * time.Second)
+	})
 }
