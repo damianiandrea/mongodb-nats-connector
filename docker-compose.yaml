@@ -45,7 +45,7 @@ services:
       restart_policy:
         condition: on-failure
   nats1:
-    image: nats
+    image: nats:2.10-alpine
     container_name: nats1
     networks:
       - connector-net
@@ -57,7 +57,7 @@ services:
       restart_policy:
         condition: on-failure
   nats2:
-    image: nats
+    image: nats:2.10-alpine
     container_name: nats2
     networks:
       - connector-net
@@ -66,7 +66,7 @@ services:
       restart_policy:
         condition: on-failure
   nats3:
-    image: nats
+    image: nats:2.10-alpine
     container_name: nats3
     networks:
       - connector-net
