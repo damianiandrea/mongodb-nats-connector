@@ -48,7 +48,11 @@ func TestMongoDeleteIsPublishedToNats(t *testing.T) {
 		require.Equal(t, event.Id.Data, msg.Header.Get(nats.MsgIdHdr))
 		require.Equal(t, event.OperationType, "delete")
 		require.Nil(t, event.FullDocument)
-		require.Equal(t, event.FullDocumentBeforeChange.Message, "hi")
+		if harness.MustGetMongoMajorVersion(t) < 6 {
+			require.Nil(t, event.FullDocumentBeforeChange)
+		} else {
+			require.Equal(t, event.FullDocumentBeforeChange.Message, "hi")
+		}
 
 		lastResumeToken := &harness.ResumeToken{}
 		h.MustMongoFindOne(ctx, "resume-tokens", testColl, bson.D{}, bson.D{{Key: "$natural", Value: -1}}, lastResumeToken)

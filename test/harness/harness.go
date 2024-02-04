@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -290,6 +291,14 @@ func (h *Harness) MustVerifyMessageCorrectness(maxMsgs int, dbName, collName str
 		require.Equal(h.t, id, event.FullDocument.Id.Hex())
 		i++
 	}
+}
+
+func MustGetMongoMajorVersion(t *testing.T) int {
+	mongoVersion := os.Getenv("MONGO_VERSION")
+
+	major, err := strconv.Atoi(string(mongoVersion[0]))
+	require.NoError(t, err)
+	return major
 }
 
 type ChangeEvent struct {

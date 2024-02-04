@@ -24,26 +24,29 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: 'go.mod'
-        cache: false
-    - name: Lint
-      uses: golangci/golangci-lint-action@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+      - name: Lint
+        uses: golangci/golangci-lint-action@v3
 
   build:
+    strategy:
+      matrix:
+        mongo-version: [5.0-focal, 6.0-focal]
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: 'go.mod'
-    - name: Unit Test
-      run: make test
-    - name: Integration Test
-      run: make it
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: Unit Test
+        run: make test
+      - name: Integration Test
+        run: make it MONGO_VERSION=${{ matrix.mongo-version }}
