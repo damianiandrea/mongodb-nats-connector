@@ -64,13 +64,7 @@ Add a new record to our example collection `coll1`:
 db.coll1.insertOne({"message": "hi"})
 ```
 
-Now look at the connector's logs:
-
-```
-docker-compose logs -f connector
-```
-
-You should see something like the following:
+Now if you look at the connector's logs, you should see something like the following:
 
 ```
 connector  | {"time":"2023-05-09T12:59:38.0312255Z","level":"DEBUG","msg":"received change event","changeEvent":"{\"_id\":{\"_data\":\"82645A43BA000000012B022C0100296E5A100441C14B6
@@ -147,7 +141,8 @@ For each collection, the following properties can be configured:
 
 * `dbName`, the name of the database where the collection to watch resides.
 * `collName`, the name of the collection to watch.
-* `changeStreamPreAndPostImages`, this is a MongoDB configuration, more info
+* `changeStreamPreAndPostImages`, (Deprecated: will be removed in future versions. Set this configuration directly on MongoDB 
+instead.) - this is a MongoDB configuration, more info
 [here](https://www.mongodb.com/docs/manual/changeStreams/#change-streams-with-document-pre--and-post-images).
 * `tokensDbName`, the name of the database where the resume tokens collection will reside.
 * `tokensCollName`, the name of the resume tokens collection for the watched collection.
