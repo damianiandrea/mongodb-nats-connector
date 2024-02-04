@@ -350,6 +350,8 @@ type collection struct {
 type CollectionOption func(*collection) error
 
 // WithChangeStreamPreAndPostImages enables MongoDB's changeStreamPreAndPostImages configuration.
+//
+// Deprecated: will be removed in future versions. Set this configuration directly on MongoDB instead.
 func WithChangeStreamPreAndPostImages() CollectionOption {
 	return func(c *collection) error {
 		c.changeStreamPreAndPostImages = true

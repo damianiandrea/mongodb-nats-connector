@@ -29,6 +29,7 @@ func main() {
 			connector.WithTokensCollName(coll.TokensCollName),
 			connector.WithStreamName(coll.StreamName),
 		}
+		// nolint:staticcheck
 		if coll.ChangeStreamPreAndPostImages != nil && *coll.ChangeStreamPreAndPostImages {
 			collOpts = append(collOpts, connector.WithChangeStreamPreAndPostImages())
 		}
