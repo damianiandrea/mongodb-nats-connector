@@ -30,11 +30,11 @@ func TestMongoDropCollection(t *testing.T) {
 	h.MustMongoDropCollection(ctx, "test-connector", "coll1")
 
 	t.Run("does not publish drop message", func(t *testing.T) {
-		h.MustNotReceiveNatsMsg("COLL1.drop", 1 * time.Second)
+		h.MustNotReceiveNatsMsg("COLL1.drop", 1*time.Second)
 	})
 
 	t.Run("does not publish invalidate message", func(t *testing.T) {
-		h.MustNotReceiveNatsMsg("COLL1.invalidate", 1 * time.Second)
+		h.MustNotReceiveNatsMsg("COLL1.invalidate", 1*time.Second)
 	})
 
 	t.Run("does not crash connector", func(t *testing.T) {
@@ -60,11 +60,11 @@ func TestMongoDropDatabase(t *testing.T) {
 	h.MustMongoDropDatabase(ctx, "test-connector")
 
 	t.Run("does not publish drop message", func(t *testing.T) {
-		h.MustNotReceiveNatsMsg("COLL1.drop", 1 * time.Second)
+		h.MustNotReceiveNatsMsg("COLL1.drop", 1*time.Second)
 	})
 
 	t.Run("does not publish invalidate message", func(t *testing.T) {
-		h.MustNotReceiveNatsMsg("COLL1.invalidate", 1 * time.Second)
+		h.MustNotReceiveNatsMsg("COLL1.invalidate", 1*time.Second)
 	})
 
 	t.Run("does not crash connector", func(t *testing.T) {

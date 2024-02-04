@@ -51,9 +51,9 @@ type Server struct {
 }
 
 type Collection struct {
-	DbName                       string `yaml:"dbName,omitempty"`
-	CollName                     string `yaml:"collName,omitempty"`
-	// Deprecated: will be removed in future versions. Set this configuration directly on MongoDB instead. 
+	DbName   string `yaml:"dbName,omitempty"`
+	CollName string `yaml:"collName,omitempty"`
+	// Deprecated: will be removed in future versions. Set this configuration directly on MongoDB instead.
 	ChangeStreamPreAndPostImages *bool  `yaml:"changeStreamPreAndPostImages,omitempty"`
 	TokensDbName                 string `yaml:"tokensDbName,omitempty"`
 	TokensCollName               string `yaml:"tokensCollName,omitempty"`

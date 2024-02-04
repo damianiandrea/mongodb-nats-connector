@@ -30,11 +30,11 @@ func TestMongoRenameCollection(t *testing.T) {
 	h.MustMongoRenameCollection(ctx, "test-connector", "coll1", "coll3")
 
 	t.Run("does not publish rename message", func(t *testing.T) {
-		h.MustNotReceiveNatsMsg("COLL1.rename", 1 * time.Second)
+		h.MustNotReceiveNatsMsg("COLL1.rename", 1*time.Second)
 	})
 
 	t.Run("does not publish invalidate message", func(t *testing.T) {
-		h.MustNotReceiveNatsMsg("COLL1.invalidate", 1 * time.Second)
+		h.MustNotReceiveNatsMsg("COLL1.invalidate", 1*time.Second)
 	})
 
 	t.Run("does not crash connector", func(t *testing.T) {

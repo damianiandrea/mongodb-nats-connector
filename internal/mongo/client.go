@@ -140,8 +140,8 @@ func (c *DefaultClient) CreateCollection(ctx context.Context, opts *CreateCollec
 		enablePreAndPostImages := bson.D{{Key: "collMod", Value: opts.CollName},
 			{Key: "changeStreamPreAndPostImages", Value: bson.D{{Key: "enabled", Value: true}}}}
 		if err = db.RunCommand(ctx, enablePreAndPostImages).Err(); err != nil {
-			c.logger.Warn("could not enable changeStreamPreAndPostImages, is your MongoDB version at least 6.0?", 
-			"collName", opts.CollName, "err", err)
+			c.logger.Warn("could not enable changeStreamPreAndPostImages, is your MongoDB version at least 6.0?",
+				"collName", opts.CollName, "err", err)
 		}
 	}
 	return nil
