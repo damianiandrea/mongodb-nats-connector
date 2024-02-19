@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/docker/docker v25.0.3+incompatible
 	github.com/nats-io/nats-server/v2 v2.10.10
-	github.com/nats-io/nats.go v1.32.0
+	github.com/nats-io/nats.go v1.33.1
 	github.com/stretchr/testify v1.8.4
 	go.mongodb.org/mongo-driver v1.13.1
 	golang.org/x/sync v0.6.0
