@@ -3,7 +3,7 @@ module github.com/damianiandrea/mongodb-nats-connector
 go 1.21
 
 require (
-	github.com/docker/docker v25.0.3+incompatible
+	github.com/docker/docker v25.0.4+incompatible
 	github.com/nats-io/nats-server/v2 v2.10.11
 	github.com/nats-io/nats.go v1.33.1
 	github.com/stretchr/testify v1.9.0
