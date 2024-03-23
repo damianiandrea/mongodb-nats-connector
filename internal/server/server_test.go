@@ -64,7 +64,7 @@ func TestServer_Run(t *testing.T) {
 		WithMetricsHandler(metricsHandler),
 	)
 
-	go func () {
+	go func() {
 		_ = srv.Run()
 	}()
 	t.Cleanup(func() {

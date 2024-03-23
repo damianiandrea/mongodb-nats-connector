@@ -36,7 +36,7 @@ func New(opts ...Option) *Server {
 	if s.metricsHandler != nil {
 		mux.Handle("/metrics", s.metricsHandler)
 	}
-	
+
 	s.http = &http.Server{
 		Addr:    s.addr,
 		Handler: recoverer(mux),
