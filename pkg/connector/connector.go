@@ -14,6 +14,7 @@ import (
 
 	"github.com/damianiandrea/mongodb-nats-connector/internal/mongo"
 	"github.com/damianiandrea/mongodb-nats-connector/internal/nats"
+	"github.com/damianiandrea/mongodb-nats-connector/internal/prometheus"
 	"github.com/damianiandrea/mongodb-nats-connector/internal/server"
 )
 
@@ -90,6 +91,7 @@ func New(opts ...Option) (*Connector, error) {
 		server.WithContext(c.options.ctx),
 		server.WithNamedMonitors(c.options.mongoClient, c.options.natsClient),
 		server.WithLogger(c.logger),
+		server.WithMetricsHandler(prometheus.Handler),
 	)
 
 	return c, nil

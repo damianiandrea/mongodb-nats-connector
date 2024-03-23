@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -23,18 +24,23 @@ func TestNew(t *testing.T) {
 		require.Empty(t, srv.monitors)
 		require.Equal(t, slog.Default(), srv.logger)
 	})
+
 	t.Run("should create server with the configured options", func(t *testing.T) {
-		addr := "127.0.0.1:8085"
-		ctx := context.TODO()
-		cmpUp := &testComponent{name: "cmp_up", err: nil}
-		cmpDown := &testComponent{name: "cmp_down", err: errors.New("not reachable")}
-		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+		var (
+			addr           = "127.0.0.1:8085"
+			ctx            = context.TODO()
+			cmpUp          = &testComponent{name: "cmp_up", err: nil}
+			cmpDown        = &testComponent{name: "cmp_down", err: errors.New("not reachable")}
+			logger         = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+			metricsHandler = &testMetricsHandler{}
+		)
 
 		srv := New(
 			WithAddr(addr),
 			WithContext(ctx),
 			WithNamedMonitors(cmpUp, cmpDown),
 			WithLogger(logger),
+			WithMetricsHandler(metricsHandler),
 		)
 
 		require.Equal(t, addr, srv.addr)
@@ -42,28 +48,38 @@ func TestNew(t *testing.T) {
 		require.Contains(t, srv.monitors, cmpUp)
 		require.Contains(t, srv.monitors, cmpDown)
 		require.Equal(t, logger, srv.logger)
+		require.Equal(t, metricsHandler, srv.metricsHandler)
 	})
 }
 
 func TestServer_Run(t *testing.T) {
-	t.Run("should create and run server and successfully call its health endpoint", func(t *testing.T) {
-		cmpUp := &testComponent{name: "cmp_up", err: nil}
-		cmpDown := &testComponent{name: "cmp_down", err: errors.New("not reachable")}
+	var (
+		cmpUp          = &testComponent{name: "cmp_up", err: nil}
+		cmpDown        = &testComponent{name: "cmp_down", err: errors.New("not reachable")}
+		metricsHandler = &testMetricsHandler{}
+	)
 
-		srv := New(
-			WithNamedMonitors(cmpUp, cmpDown),
-		)
+	srv := New(
+		WithNamedMonitors(cmpUp, cmpDown),
+		WithMetricsHandler(metricsHandler),
+	)
 
-		// start server
-		go start(srv)
+	go func() {
+		_ = srv.Run()
+	}()
+	t.Cleanup(func() {
+		_ = srv.Close()
+	})
 
-		// stop server when done
-		defer stop(srv)
-
+	waitForHealthyServer := func() {
 		require.Eventually(t, func() bool {
 			_, err := healthcheck(srv)
 			return err == nil
 		}, 5*time.Second, 100*time.Millisecond)
+	}
+
+	t.Run("should successfully call health endpoint", func(t *testing.T) {
+		waitForHealthyServer()
 
 		res, err := healthcheck(srv)
 		require.NoError(t, err)
@@ -79,16 +95,25 @@ func TestServer_Run(t *testing.T) {
 			},
 		}, gotBody)
 	})
-}
 
-func start(srv *Server) {
-	_ = srv.Run()
-}
+	t.Run("should successfully call metrics endpoint", func(t *testing.T) {
+		waitForHealthyServer()
 
-func stop(srv *Server) {
-	_ = srv.Close()
+		res, err := http.Get(fmt.Sprintf("http://%s/metrics", srv.addr))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, res.StatusCode)
+		body, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+		require.Equal(t, []byte("test metrics"), body)
+	})
 }
 
 func healthcheck(srv *Server) (*http.Response, error) {
 	return http.Get(fmt.Sprintf("http://%s/healthz", srv.addr))
+}
+
+type testMetricsHandler struct{}
+
+func (h *testMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, _ = w.Write([]byte("test metrics"))
 }
