@@ -10,10 +10,11 @@ import (
 const defaultAddr = "127.0.0.1:8080"
 
 type Server struct {
-	addr     string
-	ctx      context.Context
-	monitors []NamedMonitor
-	logger   *slog.Logger
+	addr           string
+	ctx            context.Context
+	monitors       []NamedMonitor
+	logger         *slog.Logger
+	metricsHandler http.Handler
 
 	http *http.Server
 }
@@ -32,6 +33,10 @@ func New(opts ...Option) *Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthCheck(s.monitors...))
+	if s.metricsHandler != nil {
+		mux.Handle("/metrics", s.metricsHandler)
+	}
+	
 	s.http = &http.Server{
 		Addr:    s.addr,
 		Handler: recoverer(mux),
@@ -83,6 +88,14 @@ func WithLogger(logger *slog.Logger) Option {
 	return func(s *Server) {
 		if logger != nil {
 			s.logger = logger
+		}
+	}
+}
+
+func WithMetricsHandler(metricsHandler http.Handler) Option {
+	return func(s *Server) {
+		if metricsHandler != nil {
+			s.metricsHandler = metricsHandler
 		}
 	}
 }

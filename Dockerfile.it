@@ -6,5 +6,5 @@ COPY go.* ./
 RUN go mod download
 COPY ./test ./test
 ENV CGO_ENABLED=0
-CMD go test -tags integration -v ./test/acceptance/... ; \
+CMD go test -tags integration -v ./test/acceptance/... && \
     go test -tags integration -v ./test/faultinjection/...
