@@ -47,7 +47,7 @@ func TestConnectorObservability(t *testing.T) {
 		require.Equal(t, healthRes.Components.Mongo.Status, "UP")
 		require.Equal(t, healthRes.Components.Nats.Status, "UP")
 	})
-	
+
 	t.Run("metrics", func(t *testing.T) {
 		response, err := http.Get(fmt.Sprintf("%s/metrics", h.ConnectorUrl))
 		require.NoError(t, err)
