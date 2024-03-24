@@ -98,23 +98,30 @@ func (c *DefaultClient) Close() error {
 	return nil
 }
 
-func (c *DefaultClient) AddStream(_ context.Context, opts *AddStreamOptions) error {
-	_, err := c.js.AddStream(&nats.StreamConfig{
+func (c *DefaultClient) AddStream(ctx context.Context, opts *AddStreamOptions) error {
+	addStreamCfg := &nats.StreamConfig{
 		Name:     opts.StreamName,
 		Subjects: []string{fmt.Sprintf("%s.*", opts.StreamName)},
 		Storage:  nats.FileStorage,
-	})
+	}
+	_, err := c.js.AddStream(addStreamCfg, nats.Context(ctx))
 	if err != nil {
 		return fmt.Errorf("could not add nats stream %v: %v", opts.StreamName, err)
 	}
+
 	c.logger.Debug("added nats stream", "streamName", opts.StreamName)
 	return nil
 }
 
-func (c *DefaultClient) Publish(_ context.Context, opts *PublishOptions) error {
-	if _, err := c.js.Publish(opts.Subj, opts.Data, nats.MsgId(opts.MsgId)); err != nil {
+func (c *DefaultClient) Publish(ctx context.Context, opts *PublishOptions) error {
+	_, err := c.js.Publish(opts.Subj, opts.Data,
+		nats.Context(ctx),
+		nats.MsgId(opts.MsgId),
+	)
+	if err != nil {
 		return fmt.Errorf("could not publish message %v to nats stream %v: %v", opts.Data, opts.Subj, err)
 	}
+	
 	c.logger.Debug("published message", "subj", opts.Subj, "data", string(opts.Data))
 	return nil
 }
