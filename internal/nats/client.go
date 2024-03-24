@@ -121,7 +121,7 @@ func (c *DefaultClient) Publish(ctx context.Context, opts *PublishOptions) error
 	if err != nil {
 		return fmt.Errorf("could not publish message %v to nats stream %v: %v", opts.Data, opts.Subj, err)
 	}
-	
+
 	c.logger.Debug("published message", "subj", opts.Subj, "data", string(opts.Data))
 	return nil
 }
