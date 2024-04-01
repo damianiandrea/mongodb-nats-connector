@@ -11,8 +11,13 @@ create-env:
 run-mongo-nats: create-env
 	docker-compose up --build -d mongo1 mongo2 mongo3 nats1 nats2 nats3
 
+run-prometheus-grafana:
+	docker-compose up --build -d prometheus grafana
+
 run: run-mongo-nats
 	docker-compose up --build connector
+
+run-observed: run-prometheus-grafana run
 
 create-connector:
 	docker-compose up --build --no-start connector

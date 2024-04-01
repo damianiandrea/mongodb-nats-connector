@@ -66,6 +66,11 @@ func New(opts ...Option) (*Connector, error) {
 		mongoClient, err := mongo.NewDefaultClient(
 			mongo.WithMongoUri(c.options.mongoUri),
 			mongo.WithLogger(c.logger),
+			mongo.WithEventListeners(
+				mongo.OnCmdStartedEvent(prometheus.IncCmdStarted),
+				mongo.OnCmdSucceededEvent(prometheus.ObserveCmdSucceeded),
+				mongo.OnCmdFailedEvent(prometheus.ObserveCmdFailed),
+			),
 		)
 		if err != nil {
 			return nil, err
@@ -91,7 +96,7 @@ func New(opts ...Option) (*Connector, error) {
 		server.WithContext(c.options.ctx),
 		server.WithNamedMonitors(c.options.mongoClient, c.options.natsClient),
 		server.WithLogger(c.logger),
-		server.WithMetricsHandler(prometheus.Handler),
+		server.WithMetricsHandler(prometheus.HTTPHandler()),
 	)
 
 	return c, nil
