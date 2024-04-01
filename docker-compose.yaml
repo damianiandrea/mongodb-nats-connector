@@ -74,6 +74,28 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+  prometheus:
+    image: prom/prometheus:v2.51.1
+    container_name: prometheus
+    networks:
+      - connector-net
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+    deploy:
+      restart_policy:
+        condition: on-failure
+  grafana:
+    image: grafana/grafana:10.2.6
+    container_name: grafana
+    networks:
+      - connector-net
+    ports:
+      - "3000:3000"
+    deploy:
+      restart_policy:
+        condition: on-failure
   connector:
     depends_on:
       - mongo1

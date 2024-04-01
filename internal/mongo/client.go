@@ -7,8 +7,10 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/event"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -70,6 +72,10 @@ type DefaultClient struct {
 	name   string
 	logger *slog.Logger
 
+	onCmdStartedEvent   func(dbName, cmdName string)
+	onCmdSucceededEvent func(dbName, cmdName string, duration time.Duration)
+	onCmdFailedEvent    func(dbName, cmdName, failure string, duration time.Duration)
+
 	client *mongo.Client
 }
 
@@ -88,7 +94,27 @@ func NewDefaultClient(opts ...ClientOption) (*DefaultClient, error) {
 		return nil, fmt.Errorf("invalid mongodb uri: %v", err)
 	}
 
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(c.uri))
+	cmdMonitor := &event.CommandMonitor{
+		Started: func(ctx context.Context, e *event.CommandStartedEvent) {
+			if c.onCmdStartedEvent != nil {
+				c.onCmdStartedEvent(e.DatabaseName, e.CommandName)
+			}
+		},
+		Succeeded: func(ctx context.Context, e *event.CommandSucceededEvent) {
+			if c.onCmdSucceededEvent != nil {
+				c.onCmdSucceededEvent(e.DatabaseName, e.CommandName, e.Duration)
+			}
+		},
+		Failed: func(ctx context.Context, e *event.CommandFailedEvent) {
+			if c.onCmdFailedEvent != nil {
+				c.onCmdFailedEvent(e.DatabaseName, e.CommandName, e.Failure, e.Duration)
+			}
+		},
+	}
+
+	clientOpts := options.Client().ApplyURI(c.uri).SetMonitor(cmdMonitor)
+
+	client, err := mongo.Connect(context.Background(), clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to mongodb: %v", err)
 	}
@@ -250,6 +276,40 @@ func WithLogger(logger *slog.Logger) ClientOption {
 	return func(c *DefaultClient) {
 		if logger != nil {
 			c.logger = logger
+		}
+	}
+}
+
+func WithEventListeners(listeners ...EventListener) ClientOption {
+	return func(c *DefaultClient) {
+		for _, listener := range listeners {
+			listener(c)
+		}
+	}
+}
+
+type EventListener func(*DefaultClient)
+
+func OnCmdStartedEvent(onCmdStartedEvent func(dbName, cmdName string)) EventListener {
+	return func(c *DefaultClient) {
+		if onCmdStartedEvent != nil {
+			c.onCmdStartedEvent = onCmdStartedEvent
+		}
+	}
+}
+
+func OnCmdSucceededEvent(onCmdSucceededEvent func(dbName, cmdName string, duration time.Duration)) EventListener {
+	return func(c *DefaultClient) {
+		if onCmdSucceededEvent != nil {
+			c.onCmdSucceededEvent = onCmdSucceededEvent
+		}
+	}
+}
+
+func OnCmdFailedEvent(onCmdFailedEvent func(dbName, cmdName, failure string, duration time.Duration)) EventListener {
+	return func(c *DefaultClient) {
+		if onCmdFailedEvent != nil {
+			c.onCmdFailedEvent = onCmdFailedEvent
 		}
 	}
 }
