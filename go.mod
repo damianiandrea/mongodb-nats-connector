@@ -8,7 +8,7 @@ require (
 	github.com/nats-io/nats.go v1.34.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/stretchr/testify v1.9.0
-	go.mongodb.org/mongo-driver v1.14.0
+	go.mongodb.org/mongo-driver v1.15.0
 	golang.org/x/sync v0.7.0
 	gopkg.in/yaml.v3 v3.0.1
 )
