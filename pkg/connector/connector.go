@@ -185,7 +185,7 @@ func (c *Connector) cleanup() {
 
 func (c *Connector) closeClient(closer io.Closer) {
 	if err := closer.Close(); err != nil {
-		c.logger.Error("could not close client", err)
+		c.logger.Error("could not close client", "err", err)
 	}
 }
 

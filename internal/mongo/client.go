@@ -236,7 +236,7 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 				// current change event was not published.
 				// current resume token will not be stored.
 				// connector will resume after the previous token.
-				c.logger.Error("could not publish change event", err)
+				c.logger.Error("could not publish change event", "err", err)
 				break
 			}
 
@@ -244,7 +244,7 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 				// change event has been published but token insertion failed.
 				// connector will resume after the previous token, publishing a duplicate change event.
 				// consumers should be able to detect and discard the duplicate change event by using the msg id.
-				c.logger.Error("could not insert resume token", err)
+				c.logger.Error("could not insert resume token", "err", err)
 				break
 			}
 		}
