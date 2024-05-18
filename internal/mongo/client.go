@@ -74,7 +74,7 @@ type DefaultClient struct {
 
 	onCmdStartedEvent   func(dbName, cmdName string)
 	onCmdSucceededEvent func(dbName, cmdName string, duration time.Duration)
-	onCmdFailedEvent    func(dbName, cmdName, failure string, duration time.Duration)
+	onCmdFailedEvent    func(dbName, cmdName string, duration time.Duration)
 
 	client *mongo.Client
 }
@@ -107,7 +107,7 @@ func NewDefaultClient(opts ...ClientOption) (*DefaultClient, error) {
 		},
 		Failed: func(ctx context.Context, e *event.CommandFailedEvent) {
 			if c.onCmdFailedEvent != nil {
-				c.onCmdFailedEvent(e.DatabaseName, e.CommandName, e.Failure, e.Duration)
+				c.onCmdFailedEvent(e.DatabaseName, e.CommandName, e.Duration)
 			}
 		},
 	}
@@ -306,7 +306,7 @@ func OnCmdSucceededEvent(onCmdSucceededEvent func(dbName, cmdName string, durati
 	}
 }
 
-func OnCmdFailedEvent(onCmdFailedEvent func(dbName, cmdName, failure string, duration time.Duration)) EventListener {
+func OnCmdFailedEvent(onCmdFailedEvent func(dbName, cmdName string, duration time.Duration)) EventListener {
 	return func(c *DefaultClient) {
 		if onCmdFailedEvent != nil {
 			c.onCmdFailedEvent = onCmdFailedEvent

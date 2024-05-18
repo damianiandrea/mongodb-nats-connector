@@ -62,14 +62,17 @@ func New(opts ...Option) (*Connector, error) {
 	loggerOpts := &slog.HandlerOptions{Level: c.options.logLevel}
 	c.logger = slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
 
+	registerer := prometheus.DefaultRegisterer()
+
 	if c.options.mongoClient == nil {
+		mongoRegisterer := prometheus.NewMongoRegisterer(registerer)
 		mongoClient, err := mongo.NewDefaultClient(
 			mongo.WithMongoUri(c.options.mongoUri),
 			mongo.WithLogger(c.logger),
 			mongo.WithEventListeners(
-				mongo.OnCmdStartedEvent(prometheus.IncCmdStarted),
-				mongo.OnCmdSucceededEvent(prometheus.ObserveCmdSucceeded),
-				mongo.OnCmdFailedEvent(prometheus.ObserveCmdFailed),
+				mongo.OnCmdStartedEvent(mongoRegisterer.IncMongoCmdStarted),
+				mongo.OnCmdSucceededEvent(mongoRegisterer.ObserveMongoCmdSucceeded),
+				mongo.OnCmdFailedEvent(mongoRegisterer.ObserveMongoCmdFailed),
 			),
 		)
 		if err != nil {
@@ -79,9 +82,14 @@ func New(opts ...Option) (*Connector, error) {
 	}
 
 	if c.options.natsClient == nil {
+		natsRegisterer := prometheus.NewNatsRegisterer(registerer)
 		natsClient, err := nats.NewDefaultClient(
 			nats.WithNatsUrl(c.options.natsUrl),
 			nats.WithLogger(c.logger),
+			nats.WithEventListeners(
+				nats.OnMsgPublishedEvent(natsRegisterer.ObserveNatsMsgPublished),
+				nats.OnMsgFailedEvent(natsRegisterer.ObserveNatsMsgFailed),
+			),
 		)
 		if err != nil {
 			return nil, err

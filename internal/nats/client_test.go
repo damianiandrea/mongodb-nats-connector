@@ -163,6 +163,35 @@ func TestClient_Publish(t *testing.T) {
 		require.Contains(t, msg.Header[nats.MsgIdHdr], "123")
 		require.Equal(t, []byte("test"), msg.Data)
 	})
+	t.Run("should run hook after publishing the message", func(t *testing.T) {
+		s := natstest.RunDefaultServer()
+		defer s.Shutdown()
+		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
+
+		count := 0
+		client, _ := NewDefaultClient(
+			WithEventListeners(OnMsgPublishedEvent(func(subj string, duration time.Duration) {
+				require.Equal(t, subj, "TEST.insert")
+				require.NotZero(t, duration)
+				count++
+			})),
+		)
+
+		_, _ = client.js.AddStream(&nats.StreamConfig{
+			Name:     "TEST",
+			Subjects: []string{"TEST.*"},
+			Storage:  nats.FileStorage,
+		})
+
+		err := client.Publish(context.Background(), &PublishOptions{
+			Subj:  "TEST.insert",
+			MsgId: "123",
+			Data:  []byte("test"),
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+	})
 	t.Run("should return error cause nats is not available", func(t *testing.T) {
 		s := natstest.RunDefaultServer()
 		defer s.Shutdown()
@@ -177,5 +206,29 @@ func TestClient_Publish(t *testing.T) {
 		})
 
 		require.Error(t, err)
+	})
+	t.Run("should run hook after message publishing failed", func(t *testing.T) {
+		s := natstest.RunDefaultServer()
+		defer s.Shutdown()
+		_ = s.EnableJetStream(&natsserver.JetStreamConfig{})
+
+		count := 0
+		client, _ := NewDefaultClient(
+			WithEventListeners(OnMsgFailedEvent(func(subj string, duration time.Duration) {
+				require.Equal(t, subj, "TEST.insert")
+				require.NotZero(t, duration)
+				count++
+			})),
+		)
+		client.conn.Close()
+
+		err := client.Publish(context.Background(), &PublishOptions{
+			Subj:  "TEST.insert",
+			MsgId: "123",
+			Data:  []byte("test"),
+		})
+
+		require.Error(t, err)
+		require.Equal(t, 1, count)
 	})
 }
