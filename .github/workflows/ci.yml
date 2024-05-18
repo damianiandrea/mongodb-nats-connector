@@ -37,7 +37,7 @@ jobs:
   build:
     strategy:
       matrix:
-        mongo-version: [5.0-focal, 6.0-focal]
+        mongo-version: [5.0-focal, 6.0-jammy, 7.0-jammy]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
