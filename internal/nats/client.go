@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"time"
 
 	"github.com/nats-io/nats.go"
 
@@ -44,6 +45,9 @@ type DefaultClient struct {
 	url    string
 	name   string
 	logger *slog.Logger
+
+	onMsgPublishedEvent func(subj string, duration time.Duration)
+	onMsgFailedEvent    func(subj string, duration time.Duration)
 
 	conn *nats.Conn
 	js   nats.JetStreamContext
@@ -114,15 +118,24 @@ func (c *DefaultClient) AddStream(ctx context.Context, opts *AddStreamOptions) e
 }
 
 func (c *DefaultClient) Publish(ctx context.Context, opts *PublishOptions) error {
+	start := time.Now()
 	_, err := c.js.Publish(opts.Subj, opts.Data,
 		nats.Context(ctx),
 		nats.MsgId(opts.MsgId),
 	)
+	
+	duration := time.Since(start)
 	if err != nil {
+		if c.onMsgFailedEvent != nil {
+			c.onMsgFailedEvent(opts.Subj, duration)
+		}
 		return fmt.Errorf("could not publish message %v to nats stream %v: %v", opts.Data, opts.Subj, err)
 	}
 
 	c.logger.Debug("published message", "subj", opts.Subj, "data", string(opts.Data))
+	if c.onMsgPublishedEvent != nil {
+		c.onMsgPublishedEvent(opts.Subj, duration)
+	}
 	return nil
 }
 
@@ -140,6 +153,32 @@ func WithLogger(logger *slog.Logger) ClientOption {
 	return func(c *DefaultClient) {
 		if logger != nil {
 			c.logger = logger
+		}
+	}
+}
+
+func WithEventListeners(listeners ...EventListener) ClientOption {
+	return func(c *DefaultClient) {
+		for _, listener := range listeners {
+			listener(c)
+		}
+	}
+}
+
+type EventListener func(*DefaultClient)
+
+func OnMsgPublishedEvent(onMsgPublishedEvent func(subj string, duration time.Duration)) EventListener {
+	return func(c *DefaultClient) {
+		if onMsgPublishedEvent != nil {
+			c.onMsgPublishedEvent = onMsgPublishedEvent
+		}
+	}
+}
+
+func OnMsgFailedEvent(onMsgFailedEvent func(subj string, duration time.Duration)) EventListener {
+	return func(c *DefaultClient) {
+		if onMsgFailedEvent != nil {
+			c.onMsgFailedEvent = onMsgFailedEvent
 		}
 	}
 }
