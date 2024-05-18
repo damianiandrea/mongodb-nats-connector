@@ -123,7 +123,7 @@ func (c *DefaultClient) Publish(ctx context.Context, opts *PublishOptions) error
 		nats.Context(ctx),
 		nats.MsgId(opts.MsgId),
 	)
-	
+
 	duration := time.Since(start)
 	if err != nil {
 		if c.onMsgFailedEvent != nil {

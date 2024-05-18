@@ -132,7 +132,7 @@ func TestHTTPHandler(t *testing.T) {
 	)
 
 	HTTPHandler().ServeHTTP(rec, req)
-	
+
 	require.Equal(t, http.StatusOK, rec.Code)
 	res, err := io.ReadAll(rec.Body)
 	require.NoError(t, err)
