@@ -32,9 +32,9 @@ func New(opts ...Option) *Server {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", healthCheck(s.monitors...))
+	mux.HandleFunc("GET /healthz", healthCheck(s.monitors...))
 	if s.metricsHandler != nil {
-		mux.Handle("/metrics", s.metricsHandler)
+		mux.Handle("GET /metrics", s.metricsHandler)
 	}
 
 	s.http = &http.Server{

@@ -125,9 +125,7 @@ func (c *Connector) Run() error {
 
 	group, groupCtx := errgroup.WithContext(c.options.ctx)
 
-	for _, _coll := range c.options.collections {
-		coll := _coll // to avoid unexpected behavior
-
+	for _, coll := range c.options.collections {
 		createWatchedCollOpts := &mongo.CreateCollectionOptions{
 			DbName:                       coll.dbName,
 			CollName:                     coll.collName,
