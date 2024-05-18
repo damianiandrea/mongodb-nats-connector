@@ -1,4 +1,4 @@
-MONGO_VERSION ?= 6.0-focal
+MONGO_VERSION ?= 6.0-jammy
 
 .PHONY: test
 
