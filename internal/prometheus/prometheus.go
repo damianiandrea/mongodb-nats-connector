@@ -27,7 +27,7 @@ func NewMongoRegisterer(registerer prometheus.Registerer) *MongoRegisterer {
 		),
 		mongoCommandsSucceeded: promauto.With(registerer).NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "mongodb_commands_succeded_total",
+				Name: "mongodb_commands_succeeded_total",
 				Help: "Total number of succeeded commands.",
 			},
 			[]string{"database", "command"},

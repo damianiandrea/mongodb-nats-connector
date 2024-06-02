@@ -40,7 +40,7 @@ func TestMongoRegisterer_ObserveMongoCmdSucceeded(t *testing.T) {
 	mr := NewMongoRegisterer(registerer)
 	mr.ObserveMongoCmdSucceeded(expectedDbName, expectedCmd, expectedDuration)
 
-	succeededTotal := getMetric(t, registerer, "mongodb_commands_succeded_total")
+	succeededTotal := getMetric(t, registerer, "mongodb_commands_succeeded_total")
 	require.NotNil(t, succeededTotal)
 	require.Equal(t, 1.0, succeededTotal.Counter.GetValue())
 	requireMetricHasLabel(t, succeededTotal, "database", expectedDbName)
