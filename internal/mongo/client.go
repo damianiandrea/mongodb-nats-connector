@@ -221,7 +221,10 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 			if err != nil {
 				return fmt.Errorf("could not marshal mongo change event from bson: %v", err)
 			}
-			c.logger.Debug("received change event", "changeEvent", string(json))
+
+			if c.logger.Enabled(ctx, slog.LevelDebug) {
+				c.logger.Debug("received change event", "changeEvent", string(json))
+			}
 
 			if _, ok := publishableOperationTypes[operationType]; !ok {
 				if operationType == invalidateOperationType {
