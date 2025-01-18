@@ -12,6 +12,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestConnectorRegisterer_ObserveChangeEventProcessing(t *testing.T) {
+	var (
+		registerer       = prometheus.NewPedanticRegistry()
+		expectedCollName = "coll1"
+		expectedSubj     = "COLL1.insert"
+		expectedDuration = 1 * time.Second
+	)
+
+	cr := NewConnectorRegisterer(registerer)
+	cr.ObserveChangeEventProcessing(expectedCollName, expectedSubj, expectedDuration)
+
+	duration := getMetric(t, registerer, "connector_change_event_processing_duration_seconds")
+	require.NotNil(t, duration)
+	require.Equal(t, expectedDuration.Seconds(), duration.Histogram.GetSampleSum())
+	requireMetricHasLabel(t, duration, "collection", expectedCollName)
+	requireMetricHasLabel(t, duration, "subject", expectedSubj)
+}
+
 func TestMongoRegisterer_IncMongoCmdStarted(t *testing.T) {
 	var (
 		registerer     = prometheus.NewPedanticRegistry()
