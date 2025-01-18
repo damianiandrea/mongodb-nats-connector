@@ -65,11 +65,13 @@ func New(opts ...Option) (*Connector, error) {
 	registerer := prometheus.DefaultRegisterer()
 
 	if c.options.mongoClient == nil {
+		connectorRegisterer := prometheus.NewConnectorRegisterer(registerer)
 		mongoRegisterer := prometheus.NewMongoRegisterer(registerer)
 		mongoClient, err := mongo.NewDefaultClient(
 			mongo.WithMongoUri(c.options.mongoUri),
 			mongo.WithLogger(c.logger),
 			mongo.WithEventListeners(
+				mongo.OnChangeEventProcessingEvent(connectorRegisterer.ObserveChangeEventProcessing),
 				mongo.OnCmdStartedEvent(mongoRegisterer.IncMongoCmdStarted),
 				mongo.OnCmdSucceededEvent(mongoRegisterer.ObserveMongoCmdSucceeded),
 				mongo.OnCmdFailedEvent(mongoRegisterer.ObserveMongoCmdFailed),

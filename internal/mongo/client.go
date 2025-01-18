@@ -72,9 +72,10 @@ type DefaultClient struct {
 	name   string
 	logger *slog.Logger
 
-	onCmdStartedEvent   func(dbName, cmdName string)
-	onCmdSucceededEvent func(dbName, cmdName string, duration time.Duration)
-	onCmdFailedEvent    func(dbName, cmdName string, duration time.Duration)
+	onChangeEventProcessing func(collName, subj string, duration time.Duration)
+	onCmdStartedEvent       func(dbName, cmdName string)
+	onCmdSucceededEvent     func(dbName, cmdName string, duration time.Duration)
+	onCmdFailedEvent        func(dbName, cmdName string, duration time.Duration)
 
 	client *mongo.Client
 }
@@ -214,6 +215,7 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 		c.logger.Info("watching mongodb collection", "collName", watchedColl.Name())
 
 		for cs.Next(ctx) {
+			start := time.Now()
 			currentResumeToken := cs.Current.Lookup("_id", "_data").StringValue()
 			operationType := cs.Current.Lookup("operationType").StringValue()
 
@@ -250,6 +252,8 @@ func (c *DefaultClient) WatchCollection(ctx context.Context, opts *WatchCollecti
 				c.logger.Error("could not insert resume token", "err", err)
 				break
 			}
+
+			c.onChangeEventProcessing(watchedColl.Name(), subj, time.Since(start))
 		}
 
 		c.logger.Info("stopped watching mongodb collection", "collName", watchedColl.Name())
@@ -292,6 +296,14 @@ func WithEventListeners(listeners ...EventListener) ClientOption {
 }
 
 type EventListener func(*DefaultClient)
+
+func OnChangeEventProcessingEvent(onChangeEventProcessing func(collName, subj string, duration time.Duration)) EventListener {
+	return func(c *DefaultClient) {
+		if onChangeEventProcessing != nil {
+			c.onChangeEventProcessing = onChangeEventProcessing
+		}
+	}
+}
 
 func OnCmdStartedEvent(onCmdStartedEvent func(dbName, cmdName string)) EventListener {
 	return func(c *DefaultClient) {

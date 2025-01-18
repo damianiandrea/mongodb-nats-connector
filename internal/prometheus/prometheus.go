@@ -9,6 +9,27 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+type ConnectorRegisterer struct {
+	changeEventProcessingDuration *prometheus.HistogramVec
+}
+
+func NewConnectorRegisterer(registerer prometheus.Registerer) *ConnectorRegisterer {
+	return &ConnectorRegisterer{
+		changeEventProcessingDuration: promauto.With(registerer).NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "connector_change_event_processing_duration_seconds",
+				Help:    "Duration of change event processing in seconds.",
+				Buckets: prometheus.DefBuckets,
+			},
+			[]string{"collection", "subject"},
+		),
+	}
+}
+
+func (r *ConnectorRegisterer) ObserveChangeEventProcessing(collName, subj string, duration time.Duration) {
+	r.changeEventProcessingDuration.WithLabelValues(collName, subj).Observe(duration.Seconds())
+}
+
 type MongoRegisterer struct {
 	mongoCommandsStarted   *prometheus.CounterVec
 	mongoCommandsSucceeded *prometheus.CounterVec
