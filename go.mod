@@ -1,6 +1,6 @@
 module github.com/damianiandrea/mongodb-nats-connector
 
-go 1.23
+go 1.24
 
 require (
 	github.com/docker/docker v28.0.1+incompatible
