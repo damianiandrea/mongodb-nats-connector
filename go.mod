@@ -4,7 +4,7 @@ go 1.24
 
 require (
 	github.com/docker/docker v28.0.1+incompatible
-	github.com/nats-io/nats-server/v2 v2.10.26
+	github.com/nats-io/nats-server/v2 v2.11.0
 	github.com/nats-io/nats.go v1.39.1
 	github.com/prometheus/client_golang v1.21.1
 	github.com/prometheus/client_model v0.6.1
@@ -28,6 +28,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/go-tpm v0.9.3 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/minio/highwayhash v1.0.3 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
@@ -55,10 +56,10 @@ require (
 	go.opentelemetry.io/otel/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.27.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
-	golang.org/x/crypto v0.34.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/time v0.10.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/protobuf v1.36.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
