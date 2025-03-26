@@ -5,7 +5,7 @@ go 1.24
 require (
 	github.com/docker/docker v28.0.1+incompatible
 	github.com/nats-io/nats-server/v2 v2.11.0
-	github.com/nats-io/nats.go v1.39.1
+	github.com/nats-io/nats.go v1.40.1
 	github.com/prometheus/client_golang v1.21.1
 	github.com/prometheus/client_model v0.6.1
 	github.com/stretchr/testify v1.10.0
