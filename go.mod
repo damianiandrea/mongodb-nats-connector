@@ -7,7 +7,7 @@ require (
 	github.com/nats-io/nats-server/v2 v2.11.0
 	github.com/nats-io/nats.go v1.41.0
 	github.com/prometheus/client_golang v1.21.1
-	github.com/prometheus/client_model v0.6.1
+	github.com/prometheus/client_model v0.6.2
 	github.com/stretchr/testify v1.10.0
 	go.mongodb.org/mongo-driver v1.17.3
 	golang.org/x/sync v0.13.0
@@ -60,6 +60,6 @@ require (
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
-	google.golang.org/protobuf v1.36.1 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
