@@ -1,6 +1,6 @@
 module github.com/damianiandrea/mongodb-nats-connector
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/docker/docker v28.5.2+incompatible
@@ -10,7 +10,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/stretchr/testify v1.11.1
 	go.mongodb.org/mongo-driver v1.17.6
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.18.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
